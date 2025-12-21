@@ -28,11 +28,7 @@ tasks:
         docs/vimdoc.md
         -o doc/neoweaver.txt
     sources:
-      - docs/vimdoc.md
-      - docs/installation.md
-      - docs/configuration.md
-      - docs/commands.md
-      - docs/keymaps.md
+      - docs/*.md
       - scripts/pandoc.lua
     generates:
       - doc/neoweaver.txt
