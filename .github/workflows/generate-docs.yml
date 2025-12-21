@@ -34,6 +34,15 @@ jobs:
           neovim: true
           version: v0.11.0
 
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        id: cache-deps
+        with:
+          path: deps/
+          key: neoweaver-deps-${{ runner.os }}-${{ hashFiles('.github/workflows/generate-docs.yml') }}
+          restore-keys: |
+            neoweaver-deps-${{ runner.os }}-
+
       - name: Install Pandoc
         run: |
           sudo apt-get update
@@ -44,6 +53,7 @@ jobs:
           sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
 
       - name: Setup dependencies
+        if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
           # Install mini.nvim for API docs
           mkdir -p deps
