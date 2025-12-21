@@ -4,25 +4,8 @@ vars:
   SCRIPTS_DIR: scripts
 
 tasks:
-  deps:mini:
-    desc: Download mini.nvim for API documentation generation
-    dir: deps
-    cmds:
-      - git clone --filter=blob:none https://github.com/echasnovski/mini.nvim
-    status:
-      - test -d mini.nvim/.git
-
-  deps:panvimdoc:
-    desc: Download panvimdoc for vimdoc generation
-    dir: deps
-    cmds:
-      - git clone --filter=blob:none https://github.com/kdheepak/panvimdoc
-    status:
-      - test -d panvimdoc/.git
-
   docs:gen:panvimdoc:
     desc: Generate vimdoc from markdown using panvimdoc
-    deps: ['deps:panvimdoc']
     cmds:
       - >
         pandoc
@@ -56,7 +39,6 @@ tasks:
 
   docs:api:
     desc: Generate API documentation from LuaLS annotations using mini.doc
-    deps: ['deps:mini']
     cmds:
       - nvim --headless --noplugin -u scripts/minimal_init_docs.lua -c "quit"
     sources:
@@ -67,7 +49,6 @@ tasks:
 
   docs:tags:
     desc: Generate vim help tags
-    deps: ['docs:api']
     cmds:
       - nvim --headless -c 'helptags doc' -c 'quit'
     sources:
