@@ -53,7 +53,7 @@ jobs:
           git clone --filter=blob:none --depth=1 https://github.com/kdheepak/panvimdoc deps/panvimdoc
 
       - name: Setup Task
-        uses: go-task/setup-task@v2
+        uses: go-task/setup-task@v1
 
       - name: Generate documentation
         run: |
