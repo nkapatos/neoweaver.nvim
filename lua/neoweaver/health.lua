@@ -5,7 +5,7 @@
 ---
 local M = {}
 
--- NOTE: delete me. I am only here to test the workflow sync
+-- NOTE: delete me. I am only here to test the workflow sync. Man GH actions are from the stone age
 
 --- Run checkhealth diagnostics
 function M.check()
