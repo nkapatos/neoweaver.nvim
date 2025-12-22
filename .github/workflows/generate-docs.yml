@@ -25,6 +25,11 @@ jobs:
           ref: ${{ github.head_ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Enable Pull Request Automerge
+        run: gh pr merge --merge --auto "${{ github.event.pull_request.number }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Setup Neovim
         uses: rhysd/action-setup-vim@v1
         with:
@@ -68,4 +73,5 @@ jobs:
           git add doc/
           git diff --staged --quiet || git commit -m "docs: generate help files and tags"
           git push
+
 
