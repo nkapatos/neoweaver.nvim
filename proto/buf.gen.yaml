@@ -1,0 +1,11 @@
+# buf.gen.yaml - Generate TypeScript types from mindweaver server protos
+version: v2
+plugins:
+  # Generate TypeScript types for Lua type annotation generation
+  - remote: buf.build/bufbuild/es
+    out: gen/ts
+    opt:
+      - target=ts
+inputs:
+  - git_repo: https://github.com/nkapatos/mindweaver.git
+    subdir: proto/mind

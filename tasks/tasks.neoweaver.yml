@@ -1,26 +1,30 @@
 version: '3'
 
 vars:
-  PROTO_DIR: ../../proto
-  TS_GEN_DIR: tmp
+  PROTO_DIR: ./proto
+  TS_GEN_DIR: gen/ts
   TYPES_OUTPUT: lua/neoweaver/types.lua
   SCRIPTS_DIR: scripts
 
 tasks:
   types:proto:
-    desc: Generate TypeScript types from proto files
+    desc: Generate TypeScript types from mindweaver server protos
     dir: '{{.PROTO_DIR}}'
+    preconditions:
+      - sh: command -v buf
+        msg: "buf is not installed. Install with: go install github.com/bufbuild/buf/cmd/buf@latest"
     cmds:
-      - buf generate --template '{"version":"v2","plugins":[{"remote":"buf.build/bufbuild/es","out":"../clients/neoweaver/tmp","opt":["target=ts"]}],"inputs":[{"directory":"mind"}]}'
-    sources:
-      - mind/v3/*.proto
+      - buf generate
     generates:
-      - ../clients/neoweaver/tmp/v3/*_pb.ts
+      - ../{{.TS_GEN_DIR}}/v3/*_pb.ts
 
   types:ts-to-lua:
     desc: Convert TypeScript types to Lua annotations
     deps:
       - types:proto
+    preconditions:
+      - sh: command -v bun
+        msg: "bun is not installed. Install from: https://bun.sh"
     cmds:
       - bun run {{.SCRIPTS_DIR}}/ts-to-lua.ts {{.TS_GEN_DIR}} {{.TYPES_OUTPUT}}
     sources:
@@ -109,11 +113,6 @@ tasks:
       - scripts/pandoc.lua
     generates:
       - doc/neoweaver.txt
-
-
-  #   desc: Remove generated documentation files
-  #   cmds:
-  #     - rm -f doc/neoweaver_api.txt doc/neoweaver_types.txt doc/tags
 
   docs:api:
     desc: Generate API documentation from LuaLS annotations using mini.doc
