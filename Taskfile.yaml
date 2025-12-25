@@ -1,53 +1,11 @@
 version: '3'
 
-vars:
-  SCRIPTS_DIR: scripts
+# Load configuration in layers:
+# 1. .env.example provides defaults (committed, works out-of-box)
+# 2. .env.local overrides for individual developer needs (gitignored, optional)
+dotenv:
+  - .env.example
+  - .env.local
 
-tasks:
-  docs:gen:panvimdoc:
-    desc: Generate vimdoc from markdown using panvimdoc
-    cmds:
-      - >
-        pandoc
-        --shift-heading-level-by=0
-        --metadata=project:neoweaver
-        --metadata=vimversion:"Neovim 0.11+"
-        --metadata=toc:true
-        --metadata=description:"Neoweaver - Neovim client for MindWeaver"
-        --metadata=treesitter:true
-        --metadata=incrementheadinglevelby:0
-        --metadata=dedupsubheadings:true
-        --metadata=ignorerawblocks:false
-        --metadata=docmapping:false
-        --metadata=docmappingprojectname:true
-        --metadata=demojify:false
-        --lua-filter=deps/panvimdoc/scripts/include-files.lua
-        --lua-filter=deps/panvimdoc/scripts/skip-blocks.lua
-        --lua-filter=scripts/pandoc.lua
-        -t deps/panvimdoc/scripts/panvimdoc.lua
-        docs/vimdoc.md
-        -o doc/neoweaver.txt
-    sources:
-      - docs/*.md
-      - scripts/pandoc.lua
-    generates:
-      - doc/neoweaver.txt
-
-  docs:api:
-    desc: Generate API documentation from LuaLS annotations using mini.doc
-    cmds:
-      - nvim --headless --noplugin -u scripts/minimal_init_docs.lua -c "quit"
-    sources:
-      - lua/neoweaver/init.lua
-      - lua/neoweaver/types.lua
-    generates:
-      - doc/neoweaver_api.txt
-
-  docs:tags:
-    desc: Generate vim help tags
-    cmds:
-      - nvim --headless -c 'helptags doc' -c 'quit'
-    sources:
-      - doc/*.txt
-    generates:
-      - doc/tags
+includes:
+  neoweaver: ./tasks/tasks.neoweaver.yml

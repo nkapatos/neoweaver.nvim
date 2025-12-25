@@ -225,10 +225,8 @@ local function resolve_hunk(bufnr, strategy)
         -- Local version is already in buffer
         -- No additional buffer edits required
       elseif strategy == "both" then
-
         -- Keep both versions with markers
-        -- TODO: Refine format based on user feedback
-        -- Current approach: Insert both versions with clear separators
+        -- Note: Format may be refined based on user feedback - See issue #49
         local both_lines = {}
 
         -- Add server version first

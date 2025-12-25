@@ -19,6 +19,8 @@ local M = {}
 ---
 ---@param opts? table Configuration options
 ---@field opts.allow_multiple_empty_notes? boolean Allow multiple untitled notes (default: false)
+---@field opts.metadata? table Metadata extraction configuration
+---@field opts.metadata.enabled? boolean Enable .weaverc.json extraction (default: false, EXPERIMENTAL)
 ---@field opts.api? table API configuration (servers, debug_info)
 ---@field opts.api.servers table Server configurations (required)
 ---@field opts.api.debug_info? boolean Enable debug logging (default: true)
@@ -54,6 +56,18 @@ local M = {}
 ---     }
 ---   }
 --- })
+---
+--- EXPERIMENTAL - Enable metadata extraction from .weaverc.json:
+--- require('neoweaver').setup({
+---   metadata = {
+---     enabled = true
+---   },
+---   api = {
+---     servers = {
+---       local = { url = "http://localhost:9421", default = true }
+---     }
+---   }
+--- })
 ---]]
 function M.setup(opts)
   opts = opts or {}
@@ -84,6 +98,7 @@ end
 --- @private
 function M.setup_keymaps()
   local notes = require("neoweaver._internal.notes")
+  local quicknote = require("neoweaver._internal.quicknote")
   local config = require("neoweaver._internal.config").get()
   local km_notes = config.keymaps.notes
   local km_quick = config.keymaps.quicknotes
@@ -109,6 +124,10 @@ function M.setup_keymaps()
     vim.keymap.set("n", km_notes.list, notes.list_notes, { desc = "List notes" })
   end
 
+  if km_notes.find then
+    vim.keymap.set("n", km_notes.find, notes.find_notes, { desc = "Find notes by title" })
+  end
+
   if km_notes.open then
     vim.keymap.set("n", km_notes.open, function()
       prompt_note_id("Note ID:", notes.open_note)
@@ -129,10 +148,6 @@ function M.setup_keymaps()
     vim.keymap.set("n", km_notes.new, notes.create_note, { desc = "Create new note" })
   end
 
-  if km_notes.new_with_title then
-    vim.keymap.set("n", km_notes.new_with_title, notes.create_note_with_title, { desc = "Create note with title" })
-  end
-
   if km_notes.delete then
     vim.keymap.set("n", km_notes.delete, function()
       prompt_note_id("Note ID to delete:", notes.delete_note)
@@ -140,48 +155,33 @@ function M.setup_keymaps()
   end
 
   if km_notes.meta then
-    vim.keymap.set("n", km_notes.meta, notes.edit_metadata, { desc = "Edit note metadata (TODO: not implemented)" })
+    vim.keymap.set("n", km_notes.meta, notes.edit_metadata, { desc = "Edit note metadata - See issue #44" })
   end
 
   -- Quicknotes keymaps
   if km_quick.new then
-    vim.keymap.set("n", km_quick.new, notes.create_quicknote, { desc = "New quicknote (TODO: not implemented)" })
+    vim.keymap.set("n", km_quick.new, quicknote.open, { desc = "Capture quicknote" })
   end
 
   if km_quick.list then
-    vim.keymap.set("n", km_quick.list, notes.list_quicknotes, { desc = "List quicknotes (TODO: not implemented)" })
+    vim.keymap.set("n", km_quick.list, quicknote.list, { desc = "List quicknotes - See issue #45" })
   end
 
   if km_quick.amend then
-    vim.keymap.set("n", km_quick.amend, notes.amend_quicknote, { desc = "Amend quicknote (TODO: not implemented)" })
+    vim.keymap.set("n", km_quick.amend, quicknote.amend, { desc = "Amend quicknote - See issue #45" })
   end
 
   -- Fast access quicknotes keymaps
   if km_quick.new_fast then
-    vim.keymap.set(
-      "n",
-      km_quick.new_fast,
-      notes.create_quicknote,
-      { desc = "New quicknote (fast) (TODO: not implemented)" }
-    )
+    vim.keymap.set("n", km_quick.new_fast, quicknote.open, { desc = "Capture quicknote (fast)" })
   end
 
   if km_quick.amend_fast then
-    vim.keymap.set(
-      "n",
-      km_quick.amend_fast,
-      notes.amend_quicknote,
-      { desc = "Amend quicknote (fast) (TODO: not implemented)" }
-    )
+    vim.keymap.set("n", km_quick.amend_fast, quicknote.amend, { desc = "Amend quicknote (fast) - See issue #45" })
   end
 
   if km_quick.list_fast then
-    vim.keymap.set(
-      "n",
-      km_quick.list_fast,
-      notes.list_quicknotes,
-      { desc = "List quicknotes (fast) (TODO: not implemented)" }
-    )
+    vim.keymap.set("n", km_quick.list_fast, quicknote.list, { desc = "List quicknotes (fast) - See issue #45" })
   end
 end
 
