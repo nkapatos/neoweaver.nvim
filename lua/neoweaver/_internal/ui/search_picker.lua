@@ -147,10 +147,10 @@ function M.show(opts)
         top_align = "center",
       },
       padding = {
-        top = 1,    -- Add 1 line of padding above results
+        top = 1, -- Add 1 line of padding above results
         bottom = 1, -- Add 1 line of padding below results
-        left = 2,   -- Add 2 columns of padding on left
-        right = 2,  -- Add 2 columns of padding on right
+        left = 2, -- Add 2 columns of padding on left
+        right = 2, -- Add 2 columns of padding on right
       },
     },
     win_options = {

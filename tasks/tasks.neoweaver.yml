@@ -1,7 +1,8 @@
 version: '3'
 
 vars:
-  PROTO_DIR: ./proto
+  # todo: update it to point to the remote dir if you plan to keep the proto to lua types gen.
+  # PROTO_DIR: ./proto
   TS_GEN_DIR: gen/ts
   TYPES_OUTPUT: lua/neoweaver/types.lua
   SCRIPTS_DIR: scripts

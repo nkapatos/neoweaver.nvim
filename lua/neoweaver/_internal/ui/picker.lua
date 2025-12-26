@@ -44,13 +44,14 @@ function M.pick(items, opts)
   -- Default configuration
   local size = opts.size or { width = 60, height = 20 }
   local position = opts.position or "50%"
-  local border_config = opts.border or {
-    style = "rounded",
-    text = {
-      top = opts.prompt and (" " .. opts.prompt .. " ") or " Select ",
-      top_align = "center",
-    },
-  }
+  local border_config = opts.border
+    or {
+      style = "rounded",
+      text = {
+        top = opts.prompt and (" " .. opts.prompt .. " ") or " Select ",
+        top_align = "center",
+      },
+    }
 
   local menu = Menu({
     relative = "editor",
