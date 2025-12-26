@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.1.8](https://github.com/nkapatos/neoweaver.nvim/compare/v0.1.7...v0.1.8) (2025-12-26)
+
+
+### Bug Fixes
+
+* configure release-please for standalone repo tags ([507dd48](https://github.com/nkapatos/neoweaver.nvim/commit/507dd48fbf45fcdb04170dc080a25875877ce3ec))
+
+
+### Maintenance
+
+* add buf config to generate types from remote server repo ([908c551](https://github.com/nkapatos/neoweaver.nvim/commit/908c551a4246a7a06ad4b1db451eca5274bc39f6))
+* add issue templates for standalone repo ([e1ec52e](https://github.com/nkapatos/neoweaver.nvim/commit/e1ec52e69ebd9e52fb99abe31b15fc923906d175))
+* finalise monorepo split ([dc82936](https://github.com/nkapatos/neoweaver.nvim/commit/dc8293662015965a7392bfc2f7acb25f7e10a44a))
+* remove sync-based tag workflow ([e2bfa50](https://github.com/nkapatos/neoweaver.nvim/commit/e2bfa50b2dec75eba87331d8a6e63f4fde105391))
+
+
+### CI/CD
+
+* add release-please workflow ([d4cb648](https://github.com/nkapatos/neoweaver.nvim/commit/d4cb648bd19c9749fca134633093d4bd95898b47))
+
 ## [0.1.7](https://github.com/nkapatos/mindweaver/compare/neoweaver/v0.1.6...neoweaver/v0.1.7) (2025-12-25)
 
 
