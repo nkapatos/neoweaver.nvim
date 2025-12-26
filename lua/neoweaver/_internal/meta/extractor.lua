@@ -37,7 +37,7 @@ local cache = {
 }
 
 -- Default configuration
--- Note: Configuration via setup() not implemented - See issue #47
+-- Note: Configuration via setup() not implemented - See issue #12
 M.config = {
   -- List of root markers to look for (order matters — first match wins for root detection)
   -- Type is auto-detected from file extension/name - no need to specify
@@ -65,12 +65,12 @@ M.config = {
     { name = "go.mod", fields = { "module" } },
   },
 
-  -- Note: Custom extractors not implemented - See issue #47
+  -- Note: Custom extractors not implemented - See issue #12
   -- Would allow users to register custom extraction functions
   -- custom_extractors = {}, -- [marker_name] = function(root_dir, full_path, fields) -> table
 }
 
--- Note: Setup function not implemented - See issue #47
+-- Note: Setup function not implemented - See issue #12
 -- Would allow user to override config from setup()
 -- function M.setup(user_config)
 --   M.config = vim.tbl_deep_extend("force", M.config, user_config or {})
@@ -246,7 +246,7 @@ local function find_project_root(start_dir)
     return check(parent)
   end
 
-  -- Note: LSP workspace integration not implemented - See issue #50
+  -- Note: LSP workspace integration not implemented - See issue #9
   -- File-based detection preferred for simplicity
 
   return check(start_dir) or start_dir
@@ -304,7 +304,7 @@ function M.extract_metadata(root_dir)
   end
 
   -- Extract fresh metadata
-  -- Note: Git integration evaluation needed - See issue #51
+  -- Note: Git integration evaluation needed - See issue #8
   -- Currently extracts commit hash, usefulness unclear
   local meta = {
     project = vim.g.quicknote_project or vim.fn.fnamemodify(vim.fn.getcwd(), ":t"),
@@ -328,7 +328,7 @@ function M.extract_metadata(root_dir)
     local extracted
     local marker_type = get_marker_type(marker.name)
 
-    -- Note: Custom extractors not implemented - See issue #47
+    -- Note: Custom extractors not implemented - See issue #12
     -- Would allow user-registered parsing functions
     if marker_type == "gomod" then
       extracted = extract_gomod(full_path)
@@ -342,7 +342,7 @@ function M.extract_metadata(root_dir)
       for k, v in pairs(extracted) do
         meta[k] = v
       end
-      -- Note: Merge strategy needs discussion - See issue #48
+      -- Note: Merge strategy needs discussion - See issue #11
       -- Currently merges all markers, could stop at first match
       -- break
     end

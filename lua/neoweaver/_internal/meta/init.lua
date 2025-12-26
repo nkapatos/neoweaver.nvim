@@ -25,7 +25,7 @@ local extractor = require("neoweaver._internal.meta.extractor")
 --- Load complete metadata (weaverc + auto-detected project metadata)
 --- Returns nil if metadata extraction is disabled in config
 ---
---- Note: Merge strategy needs discussion - See issue #48
+--- Note: Merge strategy needs discussion - See issue #11
 --- - Currently returns separate namespaces (weaverc, project)
 --- - Could flatten or use priority rules
 ---
@@ -42,7 +42,7 @@ function M.load(root_dir)
   local weaverc_data = weaverc.load(root_dir)
   local project_data = extractor.extract_metadata(root_dir)
 
-  -- Note: Using separate namespaces - See issue #48
+  -- Note: Using separate namespaces - See issue #11
   -- Avoids field conflicts, consumers decide how to handle overlaps
   return {
     weaverc = weaverc_data,

@@ -27,7 +27,7 @@ local function get_config()
   return vim.tbl_deep_extend("force", {
     title_template = "%Y%m%d%H%M",
     collection_id = 2,
-    -- Note: Make note type configurable - See issue #46
+    -- Note: Make note type configurable - See issue #13
     note_type_id = 2,
     popup = {
       relative = "editor",
@@ -281,7 +281,7 @@ function M.amend()
 end
 
 function M.list()
-  vim.notify("Quicknote listing not yet implemented - See issue #45", vim.log.levels.INFO)
+  vim.notify("Quicknote listing not yet implemented - See issue #14", vim.log.levels.INFO)
 end
 
 return M

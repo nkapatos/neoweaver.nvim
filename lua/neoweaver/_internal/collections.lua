@@ -30,7 +30,7 @@ function M.list_collections(opts, cb)
     local list_res = res.data
     local collections = list_res.collections or {}
 
-    -- Note: Automatic pagination not implemented - See issue #52
+    -- Note: Automatic pagination not implemented - See issue #7
     -- API includes: nextPageToken, totalSize
     -- Could recursively fetch remaining pages in background
 
