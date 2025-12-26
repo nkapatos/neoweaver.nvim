@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.9](https://github.com/nkapatos/neoweaver.nvim/compare/v0.1.8...v0.1.9) (2025-12-26)
+
+
+### Maintenance
+
+* update issue references after repo split ([7930de6](https://github.com/nkapatos/neoweaver.nvim/commit/7930de6305692af81ad6663adb1501c3116be7cf))
+
 ## [0.1.8](https://github.com/nkapatos/neoweaver.nvim/compare/v0.1.7...v0.1.8) (2025-12-26)
 
 
