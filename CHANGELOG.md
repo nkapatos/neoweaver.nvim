@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.1.9](https://github.com/nkapatos/neoweaver.nvim/compare/v0.1.8...v0.1.9) (2025-12-28)
+
+
+### Documentation
+
+* generate help files and tags ([a80cd3d](https://github.com/nkapatos/neoweaver.nvim/commit/a80cd3de81d4e506ba3abc60c31b7c5112ec5ef7))
+
+
+### Maintenance
+
+* consolidate github config files under .github directory ([98aa5d0](https://github.com/nkapatos/neoweaver.nvim/commit/98aa5d086d4c7724c2bb0529ac8a9a19f30eeeb0))
+* remove redundant task file ([2520efc](https://github.com/nkapatos/neoweaver.nvim/commit/2520efcaa2d2bf673f79cde9e665b97fc3252753))
+* update issue references after repo split ([7930de6](https://github.com/nkapatos/neoweaver.nvim/commit/7930de6305692af81ad6663adb1501c3116be7cf))
+
+
+### CI/CD
+
+* add luacheck job and placeholder echo steps for tests/docs ([657050e](https://github.com/nkapatos/neoweaver.nvim/commit/657050e9ce126035652594c80288c1345d93911b))
+* add PR checks workflow with stylua formatting check ([94fb7f2](https://github.com/nkapatos/neoweaver.nvim/commit/94fb7f2ff5452b52451b01b405fed499e01c7db3))
+* allow luacheck warnings, fail only on errors ([770833f](https://github.com/nkapatos/neoweaver.nvim/commit/770833f4c23629481ea434a3e816425c73353104))
+* consolidate workflows - add 3-stage PR checks, delete generate-docs.yml ([7655aa1](https://github.com/nkapatos/neoweaver.nvim/commit/7655aa1fedfeda3df6ca41b630f972c2119d0a2b))
+* remove luacheck job pending evaluation ([5132375](https://github.com/nkapatos/neoweaver.nvim/commit/51323757dcde0c3c2859144ed613bacf4d4acb4a))
+* remove path filters to trigger on all PRs ([71810e0](https://github.com/nkapatos/neoweaver.nvim/commit/71810e08b83c65f56b48c12d2d9b042632d8794d))
+* set max_warnings threshold to 20 in luacheckrc ([ab0b5d0](https://github.com/nkapatos/neoweaver.nvim/commit/ab0b5d03944fcf6ebc51d8a3a3371265b6ac90cb))
+
 ## [0.1.8](https://github.com/nkapatos/neoweaver.nvim/compare/v0.1.7...v0.1.8) (2025-12-26)
 
 
