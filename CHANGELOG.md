@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.10](https://github.com/nkapatos/neoweaver.nvim/compare/v0.1.9...v0.1.10) (2025-12-28)
+
+
+### Documentation
+
+* clean up stale references and align config examples ([01ff98f](https://github.com/nkapatos/neoweaver.nvim/commit/01ff98f7302d0aac2017c404103bd837473c561f))
+* generate help files and tags ([3517fbb](https://github.com/nkapatos/neoweaver.nvim/commit/3517fbb1b3bef7e8291d8e524c2b166f676c6724))
+* rewrite README with cleaner structure and multi-server examples ([6a7b340](https://github.com/nkapatos/neoweaver.nvim/commit/6a7b340de917cf5afa64597417e7822f97bb3a2a))
+
+
+### Maintenance
+
+* update gitignore for task cache and generated docs ([609c145](https://github.com/nkapatos/neoweaver.nvim/commit/609c14501740ecf2d19197593bf6a947ac2233f6))
+
+
+### CI/CD
+
+* add path filtering to skip code checks on docs-only PRs ([fb29d82](https://github.com/nkapatos/neoweaver.nvim/commit/fb29d82d26e685b5b94ebb8aa7d4bab18b4e3222))
+
 ## [0.1.9](https://github.com/nkapatos/neoweaver.nvim/compare/v0.1.8...v0.1.9) (2025-12-28)
 
 
