@@ -10,12 +10,37 @@ permissions:
 
 jobs:
   # ════════════════════════════════════════════════════════════════════════════
-  # Stage 1: Fast checks (parallel)
+  # Detect which files changed to conditionally run jobs
+  # ════════════════════════════════════════════════════════════════════════════
+
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+      docs: ${{ steps.filter.outputs.docs }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - 'lua/**'
+              - 'plugin/**'
+            docs:
+              - 'docs/**'
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # Stage 1: Fast checks (parallel) - only when code changes
   # ════════════════════════════════════════════════════════════════════════════
 
   stylua:
     name: Check formatting (stylua)
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -31,6 +56,8 @@ jobs:
   lua-test:
     name: Lua unit tests
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -40,6 +67,8 @@ jobs:
   luacheck:
     name: Lint (luacheck/selene)
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -47,13 +76,14 @@ jobs:
         run: echo "TODO - Evaluate luacheck vs selene"
 
   # ════════════════════════════════════════════════════════════════════════════
-  # Stage 2: Neovim testing (after Stage 1 passes)
+  # Stage 2: Neovim testing (after Stage 1 passes) - only when code changes
   # ════════════════════════════════════════════════════════════════════════════
 
   nvim-test:
     name: Neovim integration tests (mini.test)
     runs-on: ubuntu-latest
-    needs: [stylua, lua-test, luacheck]
+    needs: [changes, stylua, lua-test, luacheck]
+    if: needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -61,13 +91,19 @@ jobs:
         run: echo "TODO - Setup Neovim 0.11.x and run mini.test"
 
   # ════════════════════════════════════════════════════════════════════════════
-  # Stage 3: Documentation generation (after nvim-test passes)
+  # Stage 3: Documentation generation
+  # - Runs when docs/ changes (regenerate vimdoc)
+  # - Runs when code changes (API docs may change)
   # ════════════════════════════════════════════════════════════════════════════
 
   docs:
     name: Generate documentation
     runs-on: ubuntu-latest
-    needs: [nvim-test]
+    needs: [changes, nvim-test]
+    if: |
+      always() &&
+      (needs.changes.outputs.docs == 'true' || needs.changes.outputs.code == 'true') &&
+      (needs.nvim-test.result == 'success' || needs.nvim-test.result == 'skipped')
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v4
