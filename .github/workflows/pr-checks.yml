@@ -26,19 +26,32 @@ jobs:
           version: v2.0.2
           args: --check lua/
 
+      # TODO: Add autoformat step that runs stylua without --check,
+      # then commits changes with "chore: autoformat lua files" if any files were modified
+
   luacheck:
     name: Lint (luacheck)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # TODO: Add luacheck step
+
+      - name: Install luarocks and luacheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y luarocks
+          sudo luarocks install luacheck
+
+      - name: Run luacheck
+        run: luacheck lua/
 
   lua-test:
     name: Lua unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # TODO: Add pure Lua tests
+
+      - name: Run Lua tests
+        run: echo "TODO - Add pure Lua tests"
 
   # ════════════════════════════════════════════════════════════════════════════
   # Stage 2: Heavier checks (parallel, after Stage 1 passes)
@@ -50,7 +63,9 @@ jobs:
     needs: [stylua, luacheck, lua-test]
     steps:
       - uses: actions/checkout@v4
-      # TODO: Setup Neovim 0.11.x and run mini.test
+
+      - name: Run Neovim tests
+        run: echo "TODO - Setup Neovim 0.11.x and run mini.test"
 
   docs:
     name: Generate documentation
@@ -58,4 +73,6 @@ jobs:
     needs: [stylua, luacheck, lua-test]
     steps:
       - uses: actions/checkout@v4
-      # TODO: Generate vimdocs
+
+      - name: Generate docs
+        run: echo "TODO - Generate vimdocs"
