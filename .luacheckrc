@@ -4,7 +4,6 @@
 cache = true
 std = "luajit"
 codes = true
-max_warnings = 20
 
 -- Allow vim.wo.spell = true style assignments
 ignore = {
