@@ -1,6 +1,10 @@
 /gen/
 /tmp/
 /deps/
+/.task/
+
+# Generated documentation
+/doc/*.txt
 
 # Plugin packaging artifacts
 dist/
