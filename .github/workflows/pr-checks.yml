@@ -1,0 +1,61 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lua/**"
+      - "docs/**"
+      - "scripts/**"
+
+jobs:
+  # ════════════════════════════════════════════════════════════════════════════
+  # Stage 1: Fast checks (parallel)
+  # ════════════════════════════════════════════════════════════════════════════
+
+  stylua:
+    name: Check formatting (stylua)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: JohnnyMorganz/stylua-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: v2.0.2
+          args: --check lua/
+
+  luacheck:
+    name: Lint (luacheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # TODO: Add luacheck step
+
+  lua-test:
+    name: Lua unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # TODO: Add pure Lua tests
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # Stage 2: Heavier checks (parallel, after Stage 1 passes)
+  # ════════════════════════════════════════════════════════════════════════════
+
+  nvim-test:
+    name: Neovim integration tests (mini.test)
+    runs-on: ubuntu-latest
+    needs: [stylua, luacheck, lua-test]
+    steps:
+      - uses: actions/checkout@v4
+      # TODO: Setup Neovim 0.11.x and run mini.test
+
+  docs:
+    name: Generate documentation
+    runs-on: ubuntu-latest
+    needs: [stylua, luacheck, lua-test]
+    steps:
+      - uses: actions/checkout@v4
+      # TODO: Generate vimdocs
