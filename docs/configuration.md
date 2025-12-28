@@ -132,38 +132,6 @@ Notes:
 require('neoweaver').setup({
   allow_multiple_empty_notes = true,
   quicknotes = {
-    popup = {
-      position = {
-        row = 4,
-        col = 10,
-      },
-      size = {
-        width = 80,
-        height = 20,
-      },
-      border = {
-        text = {
-          top = "Scratchpad",
-        },
-      },
-    },
-  },
-
-}
-```
-
-Notes:
-
-- `title_template` is passed to `strftime()` when a quicknote saves. Use any valid strftime pattern.
-- `collection_id` and `note_type_id` are currently hard-coded defaults while user preferences sync is designed.
-- Metadata enrichment is not yet configurable (see issue #47).
-
-## Complete Setup Example
-
-```lua
-require('neoweaver').setup({
-  allow_multiple_empty_notes = true,
-  quicknotes = {
     window = {
       width = 80,
       height = 20,
