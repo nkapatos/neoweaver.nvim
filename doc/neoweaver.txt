@@ -9,10 +9,8 @@ Table of Contents                                *neoweaver-table-of-contents*
   - Prerequisites                       |neoweaver-installation-prerequisites|
   - Using lazy.nvim (Neovim 0.11+)|neoweaver-installation-using-lazy.nvim-(neovim-0.11+)|
   - Using vim.pack() (Neovim 0.12+)|neoweaver-installation-using-vim.pack()-(neovim-0.12+)|
-  - Basic Setup                           |neoweaver-installation-basic-setup|
 3. Configuration                                     |neoweaver-configuration|
   - Configuration Options      |neoweaver-configuration-configuration-options|
-  - Complete Setup Example    |neoweaver-configuration-complete-setup-example|
   - Complete Setup Example    |neoweaver-configuration-complete-setup-example|
 4. Commands                                               |neoweaver-commands|
   - Usage Examples                         |neoweaver-commands-usage-examples|
@@ -20,9 +18,8 @@ Table of Contents                                *neoweaver-table-of-contents*
   - Default Keymaps                        |neoweaver-keymaps-default-keymaps|
   - Customizing Keymaps                |neoweaver-keymaps-customizing-keymaps|
 6. API Reference                                     |neoweaver-api-reference|
-7. Architecture                                       |neoweaver-architecture|
-8. See Also                                               |neoweaver-see-also|
-9. License                                                 |neoweaver-license|
+7. See Also                                               |neoweaver-see-also|
+8. License                                                 |neoweaver-license|
 Last updated: 2025-12-28 Author: Nikos Kapatos License: MIT (see
 |neoweaver-license|)
 
@@ -75,8 +72,10 @@ USING LAZY.NVIM (NEOVIM 0.11+)*neoweaver-installation-using-lazy.nvim-(neovim-0.
         },
         opts = {
           api = {
+            -- URLs where your MindWeaver server is running
             servers = {
               local = { url = "http://localhost:9421", default = true },
+              cloud = { url = "https://mindweaver.example.com" },
             },
           },
         },
@@ -102,25 +101,12 @@ Neovim 0.12 introduces native package management with `vim.pack()`.
     
     require('neoweaver').setup({
       api = {
+        -- URLs where your MindWeaver server is running
         servers = {
           local = { url = "http://localhost:9421", default = true },
+          cloud = { url = "https://mindweaver.example.com" },
         },
       },
-    })
-<
-
-
-BASIC SETUP                               *neoweaver-installation-basic-setup*
-
-After installation, configure the plugin with at least one server:
-
->lua
-    require('neoweaver').setup({
-      api = {
-        servers = {
-          local = { url = "http://localhost:9421", default = true }
-        }
-      }
     })
 <
 
@@ -173,7 +159,7 @@ Multiple servers example:
     api = {
       servers = {
         local = { url = "http://localhost:9421", default = true },
-        cloud = { url = "https://api.mindweaver.example.com" },
+        cloud = { url = "https://mindweaver.example.com" },
         staging = { url = "https://staging.mindweaver.example.com" },
       },
     }
@@ -264,8 +250,7 @@ matches the built-in capture flow:
 Notes:
 
 - `title_template` is passed to `strftime()` when a quicknote saves. Use any valid strftime pattern.
-- `collection_id` and `note_type_id` are currently hard-coded defaults while user preferences sync is designed.
-- Metadata enrichment is not yet configurable (see issue #47).
+- `collection_id` and `note_type_id` use default values and are not yet user-configurable.
 
 
 COMPLETE SETUP EXAMPLE        *neoweaver-configuration-complete-setup-example*
@@ -274,11 +259,8 @@ COMPLETE SETUP EXAMPLE        *neoweaver-configuration-complete-setup-example*
     require('neoweaver').setup({
       allow_multiple_empty_notes = true,
       quicknotes = {
+        title_template = "%Y%m%d%H%M",
         popup = {
-          position = {
-            row = 4,
-            col = 10,
-          },
           size = {
             width = 80,
             height = 20,
@@ -290,35 +272,11 @@ COMPLETE SETUP EXAMPLE        *neoweaver-configuration-complete-setup-example*
           },
         },
       },
-    
-    }
-<
-
-Notes:
-
-- `title_template` is passed to `strftime()` when a quicknote saves. Use any valid strftime pattern.
-- `collection_id` and `note_type_id` are currently hard-coded defaults while user preferences sync is designed.
-- Metadata enrichment is not yet configurable (see issue #47).
-
-
-COMPLETE SETUP EXAMPLE        *neoweaver-configuration-complete-setup-example*
-
->lua
-    require('neoweaver').setup({
-      allow_multiple_empty_notes = true,
-      quicknotes = {
-        window = {
-          width = 80,
-          height = 20,
-          row = 2,
-          col = 10,
-          title = "Scratchpad",
-        },
-      },
       api = {
+        -- URLs where your MindWeaver server is running
         servers = {
           local = { url = "http://localhost:9421", default = true },
-          cloud = { url = "https://api.mindweaver.example.com" },
+          cloud = { url = "https://mindweaver.example.com" },
         },
         debug_info = true,
       },
@@ -334,7 +292,6 @@ COMPLETE SETUP EXAMPLE        *neoweaver-configuration-complete-setup-example*
         },
         quicknotes = {
           new = "<leader>qn",
-          new_fast = "<leader>.n",
         },
       },
     })
@@ -356,10 +313,6 @@ Neoweaver provides the following commands for note management:
   :NeoweaverNotesNew           Create a new untitled note
 
   :NeoweaverNotesQuick         Open an ephemeral quicknote capture window
-
-  :NeoweaverNotesQuickList     List saved quicknotes (see issue #45)
-
-  :NeoweaverNotesQuickAmend    Reopen last quicknote (see issue #45)
 
   :NeoweaverNotesTitle         Edit the title of the currently active
                                note
@@ -437,20 +390,6 @@ default mappings are available:
   <leader>nd    :NeoweaverNotesDelete       Delete note (prompts for ID)
 
   <leader>qn    :NeoweaverNotesQuick        Capture quicknote
-
-  <leader>ql    :NeoweaverNotesQuickList    List quicknotes (see issue
-                                            #45)
-
-  <leader>qa    :NeoweaverNotesQuickAmend   Reopen last quicknote (see
-                                            #45)
-
-  <leader>.n    :NeoweaverNotesQuick        Capture quicknote (fast)
-
-  <leader>.l    :NeoweaverNotesQuickList    List quicknotes (see issue
-                                            #45)
-
-  <leader>.a    :NeoweaverNotesQuickAmend   Reopen last quicknote (see
-                                            #45)
   ------------------------------------------------------------------------
 
 CUSTOMIZING KEYMAPS                    *neoweaver-keymaps-customizing-keymaps*
@@ -511,42 +450,15 @@ documentation for:
 
 
 ==============================================================================
-7. Architecture                                       *neoweaver-architecture*
+7. See Also                                               *neoweaver-see-also*
 
-The plugin is organized into the following structure:
-
->
-    lua/neoweaver/
-    ├── init.lua          - Public API and setup
-    ├── _internal/
-    │   ├── api.lua       - HTTP client for Connect RPC API
-    │   ├── notes.lua     - Note operations and commands
-    │   ├── buffer/
-    │   │   ├── manager.lua   - Buffer lifecycle management
-    │   │   └── statusline.lua - Status line integration
-    │   └── explorer/
-    │       ├── init.lua      - Explorer entry point
-    │       ├── tree.lua      - Tree rendering
-    │       └── window.lua    - Window management
-    └── types.lua         - Generated Lua type annotations
-<
-
-The plugin expects a running MindWeaver server exposing the v3 RPC API.
-
-
-==============================================================================
-8. See Also                                               *neoweaver-see-also*
-
-- Project repository: https://github.com/nkapatos/mindweaver
-- MindWeaver documentation: (link to server docs when available)
-
-------------------------------------------------------------------------------
-For development and contribution guidelines, see the project repository.
+- Plugin repository: https://github.com/nkapatos/neoweaver.nvim
+- MindWeaver server: https://github.com/nkapatos/mindweaver
 
 ------------------------------------------------------------------------------
 
 ==============================================================================
-9. License                                                 *neoweaver-license*
+8. License                                                 *neoweaver-license*
 
 MIT License
 
