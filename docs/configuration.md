@@ -38,7 +38,7 @@ api = {
 api = {
   servers = {
     local = { url = "http://localhost:9421", default = true },
-    cloud = { url = "https://api.mindweaver.example.com" },
+    cloud = { url = "https://mindweaver.example.com" },
     staging = { url = "https://staging.mindweaver.example.com" },
   },
 }
@@ -123,8 +123,7 @@ quicknotes = {
 Notes:
 
 - `title_template` is passed to `strftime()` when a quicknote saves. Use any valid strftime pattern.
-- `collection_id` and `note_type_id` are currently hard-coded defaults while user preferences sync is designed.
-- Metadata enrichment is not yet configurable (see issue #47).
+- `collection_id` and `note_type_id` use default values and are not yet user-configurable.
 
 ## Complete Setup Example
 
@@ -132,18 +131,24 @@ Notes:
 require('neoweaver').setup({
   allow_multiple_empty_notes = true,
   quicknotes = {
-    window = {
-      width = 80,
-      height = 20,
-      row = 2,
-      col = 10,
-      title = "Scratchpad",
+    title_template = "%Y%m%d%H%M",
+    popup = {
+      size = {
+        width = 80,
+        height = 20,
+      },
+      border = {
+        text = {
+          top = "Scratchpad",
+        },
+      },
     },
   },
   api = {
+    -- URLs where your MindWeaver server is running
     servers = {
       local = { url = "http://localhost:9421", default = true },
-      cloud = { url = "https://api.mindweaver.example.com" },
+      cloud = { url = "https://mindweaver.example.com" },
     },
     debug_info = true,
   },
@@ -159,7 +164,6 @@ require('neoweaver').setup({
     },
     quicknotes = {
       new = "<leader>qn",
-      new_fast = "<leader>.n",
     },
   },
 })

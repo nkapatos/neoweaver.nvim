@@ -28,8 +28,10 @@ return {
     },
     opts = {
       api = {
+        -- URLs where your MindWeaver server is running
         servers = {
           local = { url = "http://localhost:9421", default = true },
+          cloud = { url = "https://mindweaver.example.com" },
         },
       },
     },
@@ -54,24 +56,12 @@ vim.pack({
 
 require('neoweaver').setup({
   api = {
+    -- URLs where your MindWeaver server is running
     servers = {
       local = { url = "http://localhost:9421", default = true },
+      cloud = { url = "https://mindweaver.example.com" },
     },
   },
-})
-```
-
-## Basic Setup
-
-After installation, configure the plugin with at least one server:
-
-```lua
-require('neoweaver').setup({
-  api = {
-    servers = {
-      local = { url = "http://localhost:9421", default = true }
-    }
-  }
 })
 ```
 
