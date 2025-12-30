@@ -233,6 +233,29 @@ function Picker:_bind_keymaps()
     if action_name == "close" then
       -- Special case: close is handled by host (explorer), not source
       -- Skip for now, explorer will handle this
+    elseif action_name == "select" then
+      -- Special case: select handles tree operations (expand/collapse) or delegates to source
+      vim.keymap.set("n", key, function()
+        local node = self:get_node()
+        if not node then
+          return
+        end
+
+        -- If node has children, toggle expand/collapse (tree operation)
+        if node:has_children() then
+          if node:is_expanded() then
+            node:collapse()
+          else
+            node:expand()
+          end
+          self.tree:render()
+        else
+          -- Leaf node: delegate to ViewSource for domain-specific action
+          if self.source.actions.select then
+            self.source.actions.select(node)
+          end
+        end
+      end, opts)
     elseif self.source.actions[action_name] then
       vim.keymap.set("n", key, function()
         local node = self:get_node()

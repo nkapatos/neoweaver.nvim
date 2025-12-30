@@ -245,11 +245,14 @@ M.source = {
   prepare_node = prepare_node,
   get_stats = get_stats,
   actions = {
-    --- Open note or no-op for collections (expand/collapse handled by picker)
+    --- Open note (leaf nodes only - expand/collapse handled by picker)
     ---@param node NuiTree.Node
     select = function(node)
-      -- TODO: Implement - if node.type == "note" then notes.open_note(node.note_id)
-      vim.notify("[collections/view] select action (stub): " .. (node.type or "unknown"), vim.log.levels.INFO)
+      if node.type == "note" then
+        local notes = require("neoweaver._internal.notes")
+        notes.open_note(node.note_id)
+      end
+      -- Other types: no-op (picker handles expand/collapse for nodes with children)
     end,
 
     --- Create new collection under server or collection node
