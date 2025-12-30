@@ -5,27 +5,63 @@
 --- Defines the ViewSource interface that domains must implement to provide
 --- data to the picker. Also defines PickerConfig for host-specific keymaps.
 ---
---- ARCHITECTURE:
---- - ViewSource is the contract between domains (collections, tags) and the picker
---- - Domains implement ViewSource to provide: data loading, rendering, actions
---- - Picker consumes ViewSource + PickerConfig to display and handle interactions
+--- ARCHITECTURE DECISION RECORD (ADR):
+---
+--- VIEWSOURCE CONTRACT:
+--- ViewSource is the interface between domains (collections, tags, future views)
+--- and the picker component. Domains implement ViewSource to:
+---
+--- 1. PROVIDE DATA (load_data):
+---    - Fetch data from any source (API, filesystem, S3, etc.)
+---    - Build NuiTree.Node[] with domain-specific properties attached
+---    - Return nodes via async callback with stats
+---
+--- 2. RENDER NODES (prepare_node):
+---    - Convert NuiTree.Node to NuiLine[] for display
+---    - Use domain properties (type, is_system, etc.) for rendering decisions
+---    - Control icons, highlights, indentation, suffixes
+---
+--- 3. HANDLE ACTIONS (actions):
+---    - Receive node with domain properties + refresh_callback
+---    - Validate operations (e.g., can't delete system collections)
+---    - Call APIs to perform CRUD operations
+---    - Call refresh_callback() to trigger picker reload on success
+---
+--- WHY NuiTree.Node[] (not generic nodes):
+--- - Domain knows the data shape and what properties exist
+--- - NuiTree.Node preserves custom properties (is_system, collection_id, etc.)
+--- - prepare_node() needs these properties for rendering
+--- - actions need these properties for validation
+--- - Picker stays generic - just passes nodes around
+---
+--- WHY ACTIONS RECEIVE REFRESH CALLBACK:
+--- - Actions are async (API calls)
+--- - Picker doesn't know when action completes
+--- - ViewSource calls refresh_callback() after successful operation
+--- - This triggers picker.load() which calls load_data() again
+--- - Similar pattern to polling - picker controls refresh, ViewSource signals when
+---
+--- POLL_INTERVAL:
+--- - Domain-specific (collections may poll every 5s, tags every 30s)
+--- - nil means no polling
+--- - Picker manages the timer, ViewSource just provides the interval
 ---
 --- NO RUNTIME VALIDATION - these are LuaLS annotations only for static analysis.
 ---
 
 ---@class ViewSource
 ---@field name string Unique identifier for this view (e.g., "collections", "tags")
----@field load_data fun(callback: fun(nodes: NuiTree.Node[], stats: ViewStats)) Async data loader
----@field prepare_node fun(node: NuiTree.Node, parent?: NuiTree.Node): NuiLine[] Renders node for display
----@field actions ViewActions Table of action handlers
+---@field load_data fun(callback: fun(nodes: NuiTree.Node[], stats: ViewStats)) Async data loader, returns NuiTree.Node[] with domain properties
+---@field prepare_node fun(node: NuiTree.Node, parent?: NuiTree.Node): NuiLine[] Renders node for display using domain properties
+---@field actions ViewActions Table of action handlers that receive (node, refresh_callback)
 ---@field get_stats fun(): ViewStats Returns stats for statusline
 ---@field poll_interval? number Optional polling interval in ms (domain-specific, nil = no polling)
 
 ---@class ViewActions
----@field select? fun(node: NuiTree.Node) Called when node is selected (<CR>)
----@field create? fun() Called to create new item
----@field rename? fun(node: NuiTree.Node) Called to rename item
----@field delete? fun(node: NuiTree.Node) Called to delete item
+---@field select? fun(node: NuiTree.Node, refresh_cb: fun()) Called when node is selected (<CR>)
+---@field create? fun(node: NuiTree.Node, refresh_cb: fun()) Called to create new item (node = context for where to create)
+---@field rename? fun(node: NuiTree.Node, refresh_cb: fun()) Called to rename item
+---@field delete? fun(node: NuiTree.Node, refresh_cb: fun()) Called to delete item
 
 ---@class ViewStats
 ---@field items ViewStatItem[] Array of stat items for statusline

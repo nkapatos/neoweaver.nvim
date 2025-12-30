@@ -4,24 +4,50 @@
 --- PURPOSE:
 --- Implements the ViewSource interface for the collections domain.
 --- This file contains all domain-specific logic for displaying collections/notes
---- in the picker, previously scattered across explorer/init.lua and explorer/tree.lua.
+--- in the picker.
 ---
---- IMPLEMENTS ViewSource:
---- - name: "collections"
---- - load_data: Fetches collections tree from backend, converts to NuiTree.Node[]
---- - prepare_node: Renders collection/note nodes with proper icons, indentation
---- - actions: CRUD handlers (select opens note, create/rename/delete collection)
---- - get_stats: Returns { collections: N, notes: M } for statusline
+--- ARCHITECTURE DECISION RECORD (ADR):
 ---
---- DOMAIN KNOWLEDGE:
---- - Knows about collection/note node types
---- - Knows about is_default, is_system, collection_id, note_id properties
---- - Knows how to render "(default)" suffix, icons, etc.
+--- This ViewSource implementation demonstrates the domain-specific responsibilities:
+---
+--- 1. LOAD_DATA - Fetches and transforms data:
+---    - Calls collections.list_collections_with_notes() to fetch from API
+---    - Builds NuiTree.Node[] hierarchy with domain properties attached:
+---      - type: "server", "collection", "note"
+---      - is_system: boolean (system collections can't be deleted/renamed)
+---      - collection_id, note_id: for API operations
+---      - icon, highlight: for rendering
+---    - Wraps in server node for multi-server support
+---    - Returns nodes + stats via callback
+---
+--- 2. PREPARE_NODE - Renders nodes using domain knowledge:
+---    - Indentation based on tree depth
+---    - Expand/collapse indicator (▾/▸) for nodes with children
+---    - Icons based on type (server, collection, system collection, note)
+---    - Highlights based on type
+---    - "(default)" suffix for default items
+---
+--- 3. ACTIONS - CRUD operations with domain validation:
+---    - select: Opens note (notes.open_note) or no-op for collections
+---    - create: Creates collection under server/collection node
+---    - rename: Renames collection (not allowed for system collections)
+---    - delete: Deletes collection (not allowed for system collections)
+---    - All actions receive (node, refresh_callback)
+---    - Actions call API, then refresh_callback() on success
+---
+--- 4. POLL_INTERVAL - Domain decides polling frequency:
+---    - Collections poll every 5 seconds (configurable)
+---    - Picker manages the timer, this just provides the interval
+---
+--- NODE TYPES AND PROPERTIES:
+---   server:     { type, name, icon, highlight, server_name, server_url, is_default }
+---   collection: { type, name, icon, highlight, collection_id, is_system }
+---   note:       { type, name, icon, highlight, note_id, collection_id }
 ---
 --- REFERENCE:
 --- See _refactor_ref/explorer/tree.lua for original prepare_node logic
 --- See _refactor_ref/explorer/init.lua for original action handlers
---- See _refactor_ref/collections.lua for original build_tree_nodes
+--- See collections.lua for API functions (list_collections, create_collection, etc.)
 ---
 
 local NuiTree = require("nui.tree")
@@ -31,7 +57,7 @@ local explorer = require("neoweaver._internal.explorer")
 local M = {}
 
 --- Build tree nodes from collections data
---- TODO: Move logic from collections.build_tree_nodes
+--- TODO: Implement - call collections.list_collections_with_notes(), build NuiTree.Node[]
 ---@param callback fun(nodes: NuiTree.Node[], stats: ViewStats)
 local function load_data(callback)
   -- Stub: notify and return empty
@@ -40,7 +66,7 @@ local function load_data(callback)
 end
 
 --- Render a node for display
---- TODO: Move logic from explorer/tree.lua
+--- TODO: Implement - indentation, expand/collapse, icons, highlights, suffixes
 ---@param node NuiTree.Node
 ---@param parent NuiTree.Node|nil
 ---@return NuiLine[]
@@ -65,26 +91,35 @@ M.source = {
   prepare_node = prepare_node,
   get_stats = get_stats,
   actions = {
-    --- Open note or toggle collection
+    --- Open note or no-op for collections (expand/collapse handled by picker)
     ---@param node NuiTree.Node
-    select = function(node)
+    ---@param refresh_cb fun()
+    select = function(node, refresh_cb)
+      -- TODO: Implement - if node.type == "note" then notes.open_note(node.note_id)
       vim.notify("[collections/view] select action (stub)", vim.log.levels.INFO)
     end,
 
-    --- Create new collection
-    create = function()
+    --- Create new collection under server or collection node
+    ---@param node NuiTree.Node
+    ---@param refresh_cb fun()
+    create = function(node, refresh_cb)
+      -- TODO: Implement - validate node type, prompt for name, call API, refresh_cb()
       vim.notify("[collections/view] create action (stub)", vim.log.levels.INFO)
     end,
 
-    --- Rename collection
+    --- Rename collection (not allowed for system collections)
     ---@param node NuiTree.Node
-    rename = function(node)
+    ---@param refresh_cb fun()
+    rename = function(node, refresh_cb)
+      -- TODO: Implement - validate not system, prompt for name, call API, refresh_cb()
       vim.notify("[collections/view] rename action (stub)", vim.log.levels.INFO)
     end,
 
-    --- Delete collection
+    --- Delete collection (not allowed for system collections)
     ---@param node NuiTree.Node
-    delete = function(node)
+    ---@param refresh_cb fun()
+    delete = function(node, refresh_cb)
+      -- TODO: Implement - validate not system, confirm, call API, refresh_cb()
       vim.notify("[collections/view] delete action (stub)", vim.log.levels.INFO)
     end,
   },

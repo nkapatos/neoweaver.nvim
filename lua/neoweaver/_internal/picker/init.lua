@@ -6,19 +6,56 @@
 --- Manages its own data loading and polling based on lifecycle events.
 --- Can be hosted in any buffer (sidebar, floating window, embedded).
 ---
+--- ARCHITECTURE DECISION RECORD (ADR):
+---
+--- The picker is designed as a generic, reusable tree component that:
+---
+--- 1. OWNS THE TREE: Picker creates and manages the NuiTree instance. It handles
+---    all tree operations: rendering, navigation, expand/collapse, cursor position,
+---    and state preservation (expanded nodes, cursor) on refresh.
+---
+--- 2. DELEGATES TO VIEWSOURCE: Picker doesn't know about domain-specific data.
+---    It receives a ViewSource that provides:
+---    - load_data(callback): Fetches data, returns NuiTree.Node[] with domain properties
+---    - prepare_node(node): Renders node to NuiLine[] using domain knowledge
+---    - actions: CRUD handlers that receive (node, refresh_callback)
+---
+--- 3. HOST-AGNOSTIC: Picker doesn't create windows. A host (explorer sidebar,
+---    floating window, embedded buffer) provides the bufnr and calls lifecycle hooks.
+---    The same picker can be displayed anywhere.
+---
+--- 4. LIFECYCLE-DRIVEN: Hosts control picker via lifecycle hooks:
+---    - onMount(bufnr): Attach to buffer, create tree, bind keymaps
+---    - onShow(): Load data, start polling (if configured)
+---    - onHide(): Stop polling, preserve state
+---    - onUnmount(): Full cleanup
+---
+--- 5. ACTION FLOW: When user triggers an action (e.g., delete):
+---    - Picker gets node from tree (has domain properties like is_system)
+---    - Picker calls source.actions.delete(node, refresh_callback)
+---    - ViewSource validates (e.g., can't delete system collections)
+---    - ViewSource calls API
+---    - ViewSource calls refresh_callback() to trigger picker reload
+---
+--- 6. POLLING: Picker manages polling timer internally based on source.poll_interval.
+---    Polling starts on onShow(), stops on onHide(). This ensures no wasted
+---    network calls when picker is hidden.
+---
+--- WHY VIEWSOURCE RETURNS NuiTree.Node[]:
+--- - Domain knows the data shape (is_system, collection_id, note_id, etc.)
+--- - These properties are attached to NuiTree.Node and preserved
+--- - prepare_node() uses these properties for rendering
+--- - Actions use these properties for validation (e.g., can't delete system collections)
+--- - Keeps picker generic - it just passes nodes around
+---
 --- RESPONSIBILITIES:
 --- - Create and manage NuiTree instance
 --- - Bind keymaps based on PickerConfig
---- - Delegate actions to ViewSource.actions
+--- - Delegate actions to ViewSource.actions with refresh callback
 --- - Handle tree navigation (expand/collapse, cursor movement)
+--- - Preserve tree state (expanded nodes, cursor) on refresh
 --- - Manage data loading lifecycle (load on show, poll while visible)
 --- - Start/stop polling based on visibility (onShow/onHide)
----
---- LIFECYCLE HOOKS:
---- - onMount(bufnr): Called when picker is attached to a buffer
---- - onShow(): Called when picker becomes visible (triggers load + polling)
---- - onHide(): Called when picker is hidden (stops polling)
---- - onUnmount(): Called on full cleanup (stops polling, clears state)
 ---
 --- DOES NOT:
 --- - Know about specific domains (collections, tags, etc.)
@@ -153,10 +190,6 @@ function Picker:_stop_polling()
   vim.notify("[picker:" .. self.source.name .. "] polling stopped", vim.log.levels.INFO)
   self.poll_timer:stop()
   self.poll_timer:close()
-
-  -- TODO: Implement actual timer stop
-  -- self.poll_timer:stop()
-  -- self.poll_timer:close()
   self.poll_timer = nil
 end
 
@@ -203,7 +236,11 @@ function Picker:_bind_keymaps()
     elseif self.source.actions[action_name] then
       vim.keymap.set("n", key, function()
         local node = self:get_node()
-        self.source.actions[action_name](node)
+        -- Pass node and refresh callback to action
+        -- Action calls refresh_cb() after successful operation to trigger reload
+        self.source.actions[action_name](node, function()
+          self:load()
+        end)
       end, opts)
     end
   end

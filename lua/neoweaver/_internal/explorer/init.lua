@@ -5,6 +5,46 @@
 --- Thin window host that creates a sidebar and manages picker visibility.
 --- Does NOT know about data loading, polling, or domain-specific logic.
 ---
+--- ARCHITECTURE DECISION RECORD (ADR):
+---
+--- The explorer is a HOST for the picker component. It demonstrates the
+--- separation between window management and tree/data logic:
+---
+--- 1. WINDOW MANAGEMENT ONLY:
+---    - Creates NuiSplit sidebar window
+---    - Manages window show/hide (preserves buffer + tree state)
+---    - Provides bufnr to picker for mounting
+---    - Does NOT create trees, load data, or handle actions
+---
+--- 2. PICKER LIFECYCLE ORCHESTRATION:
+---    - open(): Creates picker, calls onMount(bufnr), then onShow()
+---    - close(): Calls picker.onHide(), then hides window
+---    - switch_view(): Calls old picker.onHide(), creates new picker, onMount, onShow
+---    - unmount(): Calls picker.onUnmount() for full cleanup
+---
+--- 3. IDLE TIMEOUT:
+---    - Starts timer when explorer is closed
+---    - If user doesn't reopen within timeout, calls unmount() to free resources
+---    - Reopen cancels the timer
+---    - This prevents memory leaks from hidden but preserved state
+---
+--- 4. VIEW REGISTRATION:
+---    - Views self-register via explorer.register_view(name, source)
+---    - Explorer stores ViewSources but doesn't inspect them
+---    - Just passes ViewSource to picker on open/switch
+---
+--- WHY EXPLORER DOESN'T KNOW ABOUT POLLING/DATA:
+---    - Picker manages polling internally based on ViewSource.poll_interval
+---    - Picker calls ViewSource.load_data() in onShow()
+---    - Explorer just triggers lifecycle hooks at the right times
+---    - This keeps explorer simple and reusable for any picker scenario
+---
+--- HOST-AGNOSTIC PATTERN:
+---    The same picker could be hosted in a floating window, embedded buffer,
+---    or any other container. The host just needs to:
+---    - Provide a bufnr
+---    - Call onMount/onShow/onHide/onUnmount at appropriate times
+---
 --- RESPONSIBILITIES:
 --- - Create/manage the sidebar window (split)
 --- - Manage picker lifecycle (onMount/onShow/onHide/onUnmount)
@@ -17,11 +57,6 @@
 --- - Know about CRUD logic (ViewSource.actions handles that)
 --- - Know about polling intervals (picker manages this)
 --- - Manage data loading directly (picker's onShow handles this)
----
---- LIFECYCLE:
---- - open()/close() use show()/hide() for fast toggle (preserves buffer + tree state)
---- - close() starts idle timer; reopen cancels it
---- - Idle timer expiry triggers full unmount (cleanup resources)
 ---
 --- USAGE:
 --- local explorer = require("neoweaver._internal.explorer")
