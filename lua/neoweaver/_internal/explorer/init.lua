@@ -16,6 +16,11 @@
 --- - Know about CRUD logic (ViewSource.actions handles that)
 --- - Hardcode domain-specific properties or types
 ---
+--- LIFECYCLE:
+--- - open()/close() use show()/hide() for fast toggle (preserves buffer + tree state)
+--- - mount()/unmount() for explicit full lifecycle control (creates/destroys buffer)
+--- - show() internally calls mount() if not yet mounted
+---
 --- USAGE:
 --- local explorer = require("neoweaver._internal.explorer")
 --- explorer.open("collections")  -- Open with collections view
@@ -49,7 +54,7 @@ local state = {
   ---@type NuiSplit|nil
   split = nil,
   ---@type boolean
-  is_open = false,
+  data_loaded = false,
 }
 
 --- Default window config
@@ -66,10 +71,10 @@ function M.register_view(name, source)
   views[name] = source
 end
 
---- Create the sidebar split window
----@return NuiSplit|nil
+--- Create the sidebar split (does not mount)
+---@return NuiSplit
 local function create_split()
-  local split = Split({
+  return Split({
     relative = "editor",
     position = window_config.position,
     size = window_config.size,
@@ -86,21 +91,52 @@ local function create_split()
       wrap = false,
     },
   })
+end
 
-  split:mount()
-
+--- Setup keymaps on the split buffer
+---@param split NuiSplit
+local function setup_keymaps(split)
   -- Close on q
   split:map("n", "q", function()
     M.close()
   end, { noremap = true })
+end
 
-  return split
+--- Setup picker with view source
+---@param source ViewSource
+local function setup_picker(source)
+  state.picker_instance = picker_mod.new(source, configs.explorer)
+  state.picker_instance:mount(state.split.bufnr)
+end
+
+--- Explicitly mount the explorer (creates buffer + window)
+--- Usually not needed - open() calls show() which mounts internally if needed
+function M.mount()
+  if state.split then
+    return -- Already created
+  end
+
+  state.split = create_split()
+  -- Note: We don't call split:mount() here, show() will do it
+end
+
+--- Explicitly unmount the explorer (destroys buffer + window, full cleanup)
+--- Use this when you need to fully reset state or free resources
+function M.unmount()
+  if state.split then
+    state.split:unmount()
+    state.split = nil
+  end
+  state.picker_instance = nil
+  state.current_view = nil
+  state.data_loaded = false
 end
 
 --- Open the explorer with a specific view
+--- Uses show() internally - mounts on first call, just shows window on subsequent calls
 ---@param view_name? string Name of the view to display (defaults to DEFAULT_VIEW)
 function M.open(view_name)
-  view_name = view_name or DEFAULT_VIEW
+  view_name = view_name or state.current_view or DEFAULT_VIEW
 
   local source = views[view_name]
   if not source then
@@ -109,62 +145,73 @@ function M.open(view_name)
   end
 
   -- Create split if not exists
-  if not state.is_open or not state.split then
+  if not state.split then
     state.split = create_split()
-    state.is_open = true
+    setup_keymaps(state.split)
   end
 
-  -- Create picker instance with source and explorer config
-  state.picker_instance = picker_mod.new(source, configs.explorer)
+  -- Show the split (mounts internally if not mounted)
+  state.split:show()
 
-  -- Mount picker to buffer
-  state.picker_instance:mount(state.split.bufnr)
+  -- Setup picker if view changed or first time
+  if state.current_view ~= view_name or not state.picker_instance then
+    setup_picker(source)
+    state.current_view = view_name
+    state.data_loaded = false
+  end
 
-  -- Load data
-  state.picker_instance:load()
-
-  state.current_view = view_name
+  -- Load data if not loaded
+  if not state.data_loaded then
+    state.picker_instance:load()
+    state.data_loaded = true
+  end
 end
 
---- Close the explorer
+--- Close the explorer (hides window, preserves buffer + tree state)
 function M.close()
   if state.split then
-    state.split:unmount()
-    state.split = nil
+    state.split:hide()
   end
-  state.picker_instance = nil
-  state.is_open = false
 end
 
 --- Toggle explorer visibility
 ---@param view_name? string View to open with (defaults to last view or DEFAULT_VIEW)
 function M.toggle(view_name)
-  if state.is_open then
+  -- Check if visible (has a valid window)
+  if state.split and state.split.winid and vim.api.nvim_win_is_valid(state.split.winid) then
     M.close()
   else
-    M.open(view_name or state.current_view or DEFAULT_VIEW)
+    M.open(view_name)
   end
 end
 
 --- Switch to a different view
 ---@param view_name string
 function M.switch_view(view_name)
-  if not state.is_open then
-    M.open(view_name)
-    return
-  end
-
   local source = views[view_name]
   if not source then
     vim.notify("Unknown view: " .. view_name, vim.log.levels.ERROR)
     return
   end
 
-  -- Create new picker with new source
-  state.picker_instance = picker_mod.new(source, configs.explorer)
-  state.picker_instance:mount(state.split.bufnr)
+  -- If not open, just open with the new view
+  if not state.split or not state.split.winid then
+    M.open(view_name)
+    return
+  end
+
+  -- Switch picker to new source
+  setup_picker(source)
   state.picker_instance:load()
   state.current_view = view_name
+  state.data_loaded = true
+end
+
+--- Refresh the current view (reload data from source)
+function M.refresh()
+  if state.picker_instance then
+    state.picker_instance:load()
+  end
 end
 
 --- Get the current picker instance (for external access)
@@ -173,10 +220,18 @@ function M.get_picker()
   return state.picker_instance
 end
 
---- Check if explorer is open
+--- Check if explorer is visible (window is open)
 ---@return boolean
 function M.is_open()
-  return state.is_open
+  return state.split ~= nil
+    and state.split.winid ~= nil
+    and vim.api.nvim_win_is_valid(state.split.winid)
+end
+
+--- Check if explorer is mounted (buffer exists, may or may not be visible)
+---@return boolean
+function M.is_mounted()
+  return state.split ~= nil and state.split._.mounted
 end
 
 return M
