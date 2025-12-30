@@ -53,35 +53,189 @@
 local NuiTree = require("nui.tree")
 local NuiLine = require("nui.line")
 local explorer = require("neoweaver._internal.explorer")
+local collections = require("neoweaver._internal.collections")
+local api = require("neoweaver._internal.api")
 
 local M = {}
 
---- Build tree nodes from collections data
---- TODO: Implement - call collections.list_collections_with_notes(), build NuiTree.Node[]
----@param callback fun(nodes: NuiTree.Node[], stats: ViewStats)
-local function load_data(callback)
-  -- Stub: notify and return empty
-  vim.notify("[collections/view] load_data called (stub)", vim.log.levels.INFO)
-  callback({}, { items = { { label = "Collections", count = 0 }, { label = "Notes", count = 0 } } })
+--
+-- Data Loading
+--
+
+--- Build NuiTree.Node[] recursively from collections and notes data
+---@param collections_data table[] Flat list of collections from API
+---@param notes_by_collection table<number, table[]> Notes grouped by collection_id
+---@param parent_id number|nil Parent collection ID (nil for root collections)
+---@return NuiTree.Node[] Array of NuiTree nodes with domain properties
+local function build_collection_nodes_recursive(collections_data, notes_by_collection, parent_id)
+  local nodes = {}
+
+  for _, collection in ipairs(collections_data) do
+    if collection.parentId == parent_id then
+      local children = {}
+
+      -- Add note children first
+      local collection_notes = notes_by_collection[collection.id] or {}
+      for _, note in ipairs(collection_notes) do
+        local note_node = NuiTree.Node({
+          id = "note:" .. note.id,
+          type = "note",
+          name = note.title,
+          icon = "󰈙",
+          highlight = "String",
+          note_id = note.id,
+          collection_id = note.collectionId,
+        })
+        table.insert(children, note_node)
+      end
+
+      -- Then recursively add child collections
+      local child_collections = build_collection_nodes_recursive(collections_data, notes_by_collection, collection.id)
+      vim.list_extend(children, child_collections)
+
+      -- Create collection node with children
+      local collection_node = NuiTree.Node({
+        id = "collection:" .. collection.id,
+        type = "collection",
+        name = collection.displayName,
+        icon = collection.isSystem and "󰉖" or "󰉋",
+        highlight = collection.isSystem and "Special" or "Directory",
+        collection_id = collection.id,
+        is_system = collection.isSystem or false,
+      }, children)
+
+      table.insert(nodes, collection_node)
+    end
+  end
+
+  return nodes
 end
 
+--- Fetch collections and notes, build NuiTree.Node[] hierarchy
+---@param callback fun(nodes: NuiTree.Node[], stats: ViewStats)
+local function load_data(callback)
+  collections.list_collections_with_notes({}, function(data, err)
+    if err then
+      vim.notify("Failed to load collections: " .. (err.message or vim.inspect(err)), vim.log.levels.ERROR)
+      callback({}, { items = { { label = "Collections", count = 0 }, { label = "Notes", count = 0 } } })
+      return
+    end
+
+    -- Handle empty collections
+    if not data or not data.collections or #data.collections == 0 then
+      callback({}, { items = { { label = "Collections", count = 0 }, { label = "Notes", count = 0 } } })
+      return
+    end
+
+    -- Build collection hierarchy
+    local collection_nodes = build_collection_nodes_recursive(
+      data.collections,
+      data.notes_by_collection or {},
+      nil -- root collections have no parent
+    )
+
+    -- Wrap in server node
+    local servers = api.config.servers
+    local current_server = api.config.current_server
+    local root_nodes = {}
+
+    if current_server and servers[current_server] then
+      local server_node = NuiTree.Node({
+        id = "server:" .. current_server,
+        type = "server",
+        name = current_server,
+        icon = "󰒋",
+        highlight = "Title",
+        server_name = current_server,
+        server_url = servers[current_server].url,
+        is_default = true,
+      }, collection_nodes)
+
+      -- Auto-expand the default server node
+      server_node:expand()
+
+      table.insert(root_nodes, server_node)
+    else
+      -- Fallback: show collections directly (no server node)
+      root_nodes = collection_nodes
+    end
+
+    -- Count notes for stats
+    local note_count = 0
+    if data.notes_by_collection then
+      for _, note_list in pairs(data.notes_by_collection) do
+        note_count = note_count + #note_list
+      end
+    end
+
+    -- Return nodes and stats
+    callback(root_nodes, {
+      items = {
+        { label = "Collections", count = #data.collections },
+        { label = "Notes", count = note_count },
+      },
+    })
+  end)
+end
+
+--
+-- Node Rendering
+--
+
 --- Render a node for display
---- TODO: Implement - indentation, expand/collapse, icons, highlights, suffixes
+--- Uses domain properties (type, icon, highlight, is_default, is_system) for rendering
 ---@param node NuiTree.Node
 ---@param parent NuiTree.Node|nil
 ---@return NuiLine[]
 local function prepare_node(node, parent)
   local line = NuiLine()
-  line:append(string.rep("  ", node:get_depth() - 1))
-  line:append(node.text or node.name or "???")
+
+  -- Indentation (2 spaces per level)
+  local indent = string.rep("  ", node:get_depth() - 1)
+  line:append(indent)
+
+  -- Expand/collapse indicator for nodes with children
+  if node:has_children() then
+    if node:is_expanded() then
+      line:append("▾ ", "NeoTreeExpander")
+    else
+      line:append("▸ ", "NeoTreeExpander")
+    end
+  else
+    line:append("  ")
+  end
+
+  -- Icon (use provided icon or empty space)
+  if node.icon then
+    line:append(node.icon .. " ", node.highlight or "Normal")
+  end
+
+  -- Name with highlight
+  line:append(node.name, node.highlight or "Normal")
+
+  -- Special suffix for default server
+  if node.is_default then
+    line:append(" ", "Comment")
+    line:append("(default)", "Comment")
+  end
+
   return { line }
 end
 
+--
+-- Stats
+--
+
 --- Get stats for statusline
+--- TODO: Track stats from last load_data call when implementing statusline
 ---@return ViewStats
 local function get_stats()
   return { items = { { label = "Collections", count = 0 }, { label = "Notes", count = 0 } } }
 end
+
+--
+-- ViewSource Definition
+--
 
 ---@type ViewSource
 M.source = {
@@ -93,33 +247,29 @@ M.source = {
   actions = {
     --- Open note or no-op for collections (expand/collapse handled by picker)
     ---@param node NuiTree.Node
-    ---@param refresh_cb fun()
-    select = function(node, refresh_cb)
+    select = function(node)
       -- TODO: Implement - if node.type == "note" then notes.open_note(node.note_id)
-      vim.notify("[collections/view] select action (stub)", vim.log.levels.INFO)
+      vim.notify("[collections/view] select action (stub): " .. (node.type or "unknown"), vim.log.levels.INFO)
     end,
 
     --- Create new collection under server or collection node
     ---@param node NuiTree.Node
-    ---@param refresh_cb fun()
-    create = function(node, refresh_cb)
-      -- TODO: Implement - validate node type, prompt for name, call API, refresh_cb()
+    create = function(node)
+      -- TODO: Implement - validate node type, prompt for name, call API
       vim.notify("[collections/view] create action (stub)", vim.log.levels.INFO)
     end,
 
     --- Rename collection (not allowed for system collections)
     ---@param node NuiTree.Node
-    ---@param refresh_cb fun()
-    rename = function(node, refresh_cb)
-      -- TODO: Implement - validate not system, prompt for name, call API, refresh_cb()
+    rename = function(node)
+      -- TODO: Implement - validate not system, prompt for name, call API
       vim.notify("[collections/view] rename action (stub)", vim.log.levels.INFO)
     end,
 
     --- Delete collection (not allowed for system collections)
     ---@param node NuiTree.Node
-    ---@param refresh_cb fun()
-    delete = function(node, refresh_cb)
-      -- TODO: Implement - validate not system, confirm, call API, refresh_cb()
+    delete = function(node)
+      -- TODO: Implement - validate not system, confirm, call API
       vim.notify("[collections/view] delete action (stub)", vim.log.levels.INFO)
     end,
   },

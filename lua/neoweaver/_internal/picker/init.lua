@@ -236,11 +236,9 @@ function Picker:_bind_keymaps()
     elseif self.source.actions[action_name] then
       vim.keymap.set("n", key, function()
         local node = self:get_node()
-        -- Pass node and refresh callback to action
-        -- Action calls refresh_cb() after successful operation to trigger reload
-        self.source.actions[action_name](node, function()
-          self:load()
-        end)
+        -- TODO: Pass refresh callback to actions once we finalize the pattern
+        -- self.source.actions[action_name](node, function() self:load() end)
+        self.source.actions[action_name](node)
       end, opts)
     end
   end
