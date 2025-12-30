@@ -178,6 +178,15 @@ vim.api.nvim_create_user_command("NeoweaverCollectionDelete", function(opts)
   end)
 end, { nargs = 1, desc = "Delete collection" })
 
+-- Explorer v2 (PoC)
+vim.api.nvim_create_user_command("NeoweaverExplorerV2", function()
+  require("neoweaver._internal.ui.picker.explorer_v2").toggle()
+end, { desc = "Toggle explorer v2 (PoC)" })
+
+vim.keymap.set("n", "<leader>nv", function()
+  require("neoweaver._internal.explorer").toggle()
+end, { desc = "Toggle explorer" })
+
 vim.api.nvim_create_user_command("NeoweaverCollectionUpdate", function(opts)
   local collections = require("neoweaver._internal.collections")
   
