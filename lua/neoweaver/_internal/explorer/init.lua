@@ -65,7 +65,7 @@ local config = {
     position = "left",
     size = 30,
   },
-  idle_timeout = 60000, -- 60 seconds default
+  idle_timeout = 10000, -- 10 seconds for testing (TODO: restore to 60000 for production)
 }
 
 --- Register a view source
@@ -91,6 +91,7 @@ function M._start_idle_timer()
     timer:stop()
     timer:close()
     state.idle_timer = nil
+    vim.notify("[explorer] idle timeout - unmounting", vim.log.levels.INFO)
     M.unmount()
   end))
 end
@@ -136,6 +137,16 @@ local function setup_keymaps(split)
   -- Close on q
   split:map("n", "q", function()
     M.close()
+  end, { noremap = true })
+
+  -- Switch views with 1/2 keys (for testing polling lifecycle)
+  -- TODO: Remove or replace with proper view switcher UI
+  split:map("n", "1", function()
+    M.switch_view("collections")
+  end, { noremap = true })
+
+  split:map("n", "2", function()
+    M.switch_view("tags")
   end, { noremap = true })
 end
 

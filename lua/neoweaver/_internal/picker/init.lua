@@ -98,7 +98,8 @@ function Picker:onShow()
   self.is_visible = true
   -- TODO: Consider adding staleness check to avoid reload if data is fresh
   self:load()
-  self:_start_polling()
+  -- TODO: Re-enable polling once load_data is implemented with actual API calls
+  -- self:_start_polling()
 end
 
 --- Called when picker is hidden
@@ -132,16 +133,15 @@ function Picker:_start_polling()
   -- Stop any existing timer first
   self:_stop_polling()
 
-  -- Stub: log polling start (will implement actual timer)
-  vim.notify("[picker] start_polling stub: interval=" .. interval .. "ms", vim.log.levels.DEBUG)
+  self.poll_timer = vim.loop.new_timer()
+  self.poll_timer:start(interval, interval, vim.schedule_wrap(function()
+    if self.is_visible then
+      vim.notify("[picker:" .. self.source.name .. "] polling tick", vim.log.levels.INFO)
+      self:load()
+    end
+  end))
 
-  -- TODO: Implement actual polling with vim.loop.new_timer()
-  -- self.poll_timer = vim.loop.new_timer()
-  -- self.poll_timer:start(interval, interval, vim.schedule_wrap(function()
-  --   if self.is_visible then
-  --     self:load()
-  --   end
-  -- end))
+  vim.notify("[picker:" .. self.source.name .. "] polling started: " .. interval .. "ms", vim.log.levels.INFO)
 end
 
 --- Stop polling timer if running
@@ -150,8 +150,9 @@ function Picker:_stop_polling()
     return
   end
 
-  -- Stub: log polling stop (will implement actual timer)
-  vim.notify("[picker] stop_polling stub", vim.log.levels.DEBUG)
+  vim.notify("[picker:" .. self.source.name .. "] polling stopped", vim.log.levels.INFO)
+  self.poll_timer:stop()
+  self.poll_timer:close()
 
   -- TODO: Implement actual timer stop
   -- self.poll_timer:stop()
