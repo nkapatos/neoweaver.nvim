@@ -19,6 +19,7 @@
 ---@field prepare_node fun(node: NuiTree.Node, parent?: NuiTree.Node): NuiLine[] Renders node for display
 ---@field actions ViewActions Table of action handlers
 ---@field get_stats fun(): ViewStats Returns stats for statusline
+---@field poll_interval? number Optional polling interval in ms (domain-specific, nil = no polling)
 
 ---@class ViewActions
 ---@field select? fun(node: NuiTree.Node) Called when node is selected (<CR>)

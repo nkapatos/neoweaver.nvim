@@ -69,6 +69,7 @@ end
 ---@type ViewSource
 M.source = {
   name = "tags",
+  poll_interval = 10000, -- 10 seconds (mock, different to verify independence)
   load_data = load_data,
   prepare_node = prepare_node,
   get_stats = get_stats,

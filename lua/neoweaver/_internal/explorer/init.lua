@@ -2,24 +2,26 @@
 --- explorer/init.lua - Sidebar host for the picker
 ---
 --- PURPOSE:
---- Thin coordinator that creates a sidebar window and hosts a picker instance.
---- Does NOT know about specific domains (collections, tags, etc.).
+--- Thin window host that creates a sidebar and manages picker visibility.
+--- Does NOT know about data loading, polling, or domain-specific logic.
 ---
 --- RESPONSIBILITIES:
 --- - Create/manage the sidebar window (split)
---- - Instantiate picker with a ViewSource and explorer config
+--- - Manage picker lifecycle (onMount/onShow/onHide/onUnmount)
 --- - Handle window lifecycle (open, close, toggle)
---- - Delegate view switching (collections view, tags view, etc.)
+--- - Manage idle timeout for resource cleanup
+--- - Delegate view switching
 ---
 --- DOES NOT:
 --- - Know how to render domain-specific nodes (picker + ViewSource do that)
 --- - Know about CRUD logic (ViewSource.actions handles that)
---- - Hardcode domain-specific properties or types
+--- - Know about polling intervals (picker manages this)
+--- - Manage data loading directly (picker's onShow handles this)
 ---
 --- LIFECYCLE:
 --- - open()/close() use show()/hide() for fast toggle (preserves buffer + tree state)
---- - mount()/unmount() for explicit full lifecycle control (creates/destroys buffer)
---- - show() internally calls mount() if not yet mounted
+--- - close() starts idle timer; reopen cancels it
+--- - Idle timer expiry triggers full unmount (cleanup resources)
 ---
 --- USAGE:
 --- local explorer = require("neoweaver._internal.explorer")
@@ -53,14 +55,17 @@ local state = {
   current_view = nil,
   ---@type NuiSplit|nil
   split = nil,
-  ---@type boolean
-  data_loaded = false,
+  ---@type uv_timer_t|nil
+  idle_timer = nil,
 }
 
---- Default window config
-local window_config = {
-  position = "left",
-  size = 30,
+--- Configuration
+local config = {
+  window = {
+    position = "left",
+    size = 30,
+  },
+  idle_timeout = 60000, -- 60 seconds default
 }
 
 --- Register a view source
@@ -71,13 +76,45 @@ function M.register_view(name, source)
   views[name] = source
 end
 
+--
+-- Idle Timer Management
+--
+
+--- Start idle timer for cleanup after close
+function M._start_idle_timer()
+  M._cancel_idle_timer()
+
+  local timer = vim.loop.new_timer()
+  state.idle_timer = timer
+
+  timer:start(config.idle_timeout, 0, vim.schedule_wrap(function()
+    timer:stop()
+    timer:close()
+    state.idle_timer = nil
+    M.unmount()
+  end))
+end
+
+--- Cancel pending idle timer
+function M._cancel_idle_timer()
+  if state.idle_timer then
+    state.idle_timer:stop()
+    state.idle_timer:close()
+    state.idle_timer = nil
+  end
+end
+
+--
+-- Window Management
+--
+
 --- Create the sidebar split (does not mount)
 ---@return NuiSplit
 local function create_split()
   return Split({
     relative = "editor",
-    position = window_config.position,
-    size = window_config.size,
+    position = config.window.position,
+    size = config.window.size,
     buf_options = {
       buftype = "nofile",
       swapfile = false,
@@ -106,30 +143,28 @@ end
 ---@param source ViewSource
 local function setup_picker(source)
   state.picker_instance = picker_mod.new(source, configs.explorer)
-  state.picker_instance:mount(state.split.bufnr)
 end
 
---- Explicitly mount the explorer (creates buffer + window)
---- Usually not needed - open() calls show() which mounts internally if needed
-function M.mount()
-  if state.split then
-    return -- Already created
-  end
-
-  state.split = create_split()
-  -- Note: We don't call split:mount() here, show() will do it
-end
+--
+-- Public API
+--
 
 --- Explicitly unmount the explorer (destroys buffer + window, full cleanup)
 --- Use this when you need to fully reset state or free resources
 function M.unmount()
+  M._cancel_idle_timer()
+
+  if state.picker_instance then
+    state.picker_instance:onUnmount()
+    state.picker_instance = nil
+  end
+
   if state.split then
     state.split:unmount()
     state.split = nil
   end
-  state.picker_instance = nil
+
   state.current_view = nil
-  state.data_loaded = false
 end
 
 --- Open the explorer with a specific view
@@ -144,6 +179,9 @@ function M.open(view_name)
     return
   end
 
+  -- Cancel idle timer if pending
+  M._cancel_idle_timer()
+
   -- Create split if not exists
   if not state.split then
     state.split = create_split()
@@ -155,23 +193,32 @@ function M.open(view_name)
 
   -- Setup picker if view changed or first time
   if state.current_view ~= view_name or not state.picker_instance then
+    -- Hide old picker if exists (stops its polling)
+    if state.picker_instance then
+      state.picker_instance:onHide()
+    end
+
     setup_picker(source)
+    state.picker_instance:onMount(state.split.bufnr)
     state.current_view = view_name
-    state.data_loaded = false
   end
 
-  -- Load data if not loaded
-  if not state.data_loaded then
-    state.picker_instance:load()
-    state.data_loaded = true
-  end
+  -- Trigger show lifecycle (loads data, starts polling)
+  state.picker_instance:onShow()
 end
 
 --- Close the explorer (hides window, preserves buffer + tree state)
 function M.close()
+  if state.picker_instance then
+    state.picker_instance:onHide() -- stops polling
+  end
+
   if state.split then
     state.split:hide()
   end
+
+  -- Start idle timer for cleanup
+  M._start_idle_timer()
 end
 
 --- Toggle explorer visibility
@@ -200,17 +247,22 @@ function M.switch_view(view_name)
     return
   end
 
-  -- Switch picker to new source
+  -- Hide old picker (stops polling)
+  if state.picker_instance then
+    state.picker_instance:onHide()
+  end
+
+  -- Setup and show new picker
   setup_picker(source)
-  state.picker_instance:load()
+  state.picker_instance:onMount(state.split.bufnr)
+  state.picker_instance:onShow()
   state.current_view = view_name
-  state.data_loaded = true
 end
 
 --- Refresh the current view (reload data from source)
 function M.refresh()
   if state.picker_instance then
-    state.picker_instance:load()
+    state.picker_instance:refresh()
   end
 end
 

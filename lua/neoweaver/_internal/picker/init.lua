@@ -1,28 +1,38 @@
 ---
---- picker/init.lua - Generic tree picker component
+--- picker/init.lua - Generic tree picker component with lifecycle hooks
 ---
 --- PURPOSE:
---- Domain-agnostic picker that displays hierarchical data using NuiTree.
---- Receives a ViewSource (data + rendering + actions) and a PickerConfig (keymaps).
---- Can be hosted in a sidebar (explorer) or floating window.
+--- Self-contained, host-agnostic component that displays hierarchical data using NuiTree.
+--- Manages its own data loading and polling based on lifecycle events.
+--- Can be hosted in any buffer (sidebar, floating window, embedded).
 ---
 --- RESPONSIBILITIES:
 --- - Create and manage NuiTree instance
 --- - Bind keymaps based on PickerConfig
 --- - Delegate actions to ViewSource.actions
 --- - Handle tree navigation (expand/collapse, cursor movement)
---- - Trigger data loading via ViewSource.load_data
+--- - Manage data loading lifecycle (load on show, poll while visible)
+--- - Start/stop polling based on visibility (onShow/onHide)
+---
+--- LIFECYCLE HOOKS:
+--- - onMount(bufnr): Called when picker is attached to a buffer
+--- - onShow(): Called when picker becomes visible (triggers load + polling)
+--- - onHide(): Called when picker is hidden (stops polling)
+--- - onUnmount(): Called on full cleanup (stops polling, clears state)
 ---
 --- DOES NOT:
 --- - Know about specific domains (collections, tags, etc.)
 --- - Create windows (host's responsibility)
 --- - Define what actions mean (ViewSource's responsibility)
+--- - Know where it's displayed (host-agnostic)
 ---
 --- USAGE:
 --- local picker = require("neoweaver._internal.picker")
 --- local my_picker = picker.new(view_source, config)
---- my_picker:mount(bufnr)
---- my_picker:load()
+--- my_picker:onMount(bufnr)
+--- my_picker:onShow()    -- triggers load + starts polling
+--- my_picker:onHide()    -- stops polling
+--- my_picker:onUnmount() -- full cleanup
 ---
 --- REFERENCE:
 --- See _refactor_ref/explorer/ and _refactor_ref/picker/ for original implementation
@@ -37,6 +47,8 @@ local M = {}
 ---@field config PickerConfig
 ---@field tree NuiTree|nil
 ---@field bufnr number|nil
+---@field poll_timer uv_timer_t|nil Timer handle for polling
+---@field is_visible boolean Visibility state
 local Picker = {}
 Picker.__index = Picker
 
@@ -50,19 +62,27 @@ function M.new(source, config)
   self.config = config
   self.tree = nil
   self.bufnr = nil
+  self.poll_timer = nil
+  self.is_visible = false
   return self
 end
 
+--
+-- Lifecycle Hooks
+--
+
 --- Mount the picker to a buffer
+--- Called once when picker is attached to a buffer
 ---@param bufnr number Buffer number to render into
-function Picker:mount(bufnr)
+function Picker:onMount(bufnr)
   self.bufnr = bufnr
+  self.is_visible = false
 
   -- Create NuiTree with source's prepare_node for rendering
   self.tree = NuiTree({
     bufnr = bufnr,
     prepare_node = self.source.prepare_node,
-    nodes = {}, -- Start empty, load() will populate
+    nodes = {}, -- Start empty, onShow will trigger load
   })
 
   -- Bind keymaps from config, delegating to source.actions
@@ -71,6 +91,105 @@ function Picker:mount(bufnr)
   -- Bind navigation keymaps (always present)
   self:_bind_navigation()
 end
+
+--- Called when picker becomes visible
+--- Triggers data load and starts polling if configured
+function Picker:onShow()
+  self.is_visible = true
+  -- TODO: Consider adding staleness check to avoid reload if data is fresh
+  self:load()
+  self:_start_polling()
+end
+
+--- Called when picker is hidden
+--- Stops polling to avoid unnecessary network calls
+function Picker:onHide()
+  self.is_visible = false
+  self:_stop_polling()
+end
+
+--- Called on full cleanup
+--- Stops polling and clears all state
+function Picker:onUnmount()
+  self:_stop_polling()
+  self.tree = nil
+  self.bufnr = nil
+  self.is_visible = false
+end
+
+--
+-- Polling
+--
+
+--- Start polling timer based on source.poll_interval
+--- Polling only runs while picker is visible
+function Picker:_start_polling()
+  local interval = self.source.poll_interval
+  if not interval then
+    return
+  end
+
+  -- Stop any existing timer first
+  self:_stop_polling()
+
+  -- Stub: log polling start (will implement actual timer)
+  vim.notify("[picker] start_polling stub: interval=" .. interval .. "ms", vim.log.levels.DEBUG)
+
+  -- TODO: Implement actual polling with vim.loop.new_timer()
+  -- self.poll_timer = vim.loop.new_timer()
+  -- self.poll_timer:start(interval, interval, vim.schedule_wrap(function()
+  --   if self.is_visible then
+  --     self:load()
+  --   end
+  -- end))
+end
+
+--- Stop polling timer if running
+function Picker:_stop_polling()
+  if not self.poll_timer then
+    return
+  end
+
+  -- Stub: log polling stop (will implement actual timer)
+  vim.notify("[picker] stop_polling stub", vim.log.levels.DEBUG)
+
+  -- TODO: Implement actual timer stop
+  -- self.poll_timer:stop()
+  -- self.poll_timer:close()
+  self.poll_timer = nil
+end
+
+--
+-- Data Loading
+--
+
+--- Load data from the source and render
+function Picker:load()
+  self.source.load_data(function(nodes, stats)
+    if self.tree then
+      self.tree:set_nodes(nodes)
+      self.tree:render()
+    end
+  end)
+end
+
+--- Get the currently selected node
+---@return NuiTree.Node|nil
+function Picker:get_node()
+  if not self.tree then
+    return nil
+  end
+  return self.tree:get_node()
+end
+
+--- Refresh the tree (reload data)
+function Picker:refresh()
+  self:load()
+end
+
+--
+-- Keymaps
+--
 
 --- Bind action keymaps from config
 function Picker:_bind_keymaps()
@@ -116,30 +235,6 @@ function Picker:_bind_navigation()
       self.tree:render()
     end
   end, opts)
-end
-
---- Load data from the source and render
-function Picker:load()
-  self.source.load_data(function(nodes, stats)
-    if self.tree then
-      self.tree:set_nodes(nodes)
-      self.tree:render()
-    end
-  end)
-end
-
---- Get the currently selected node
----@return NuiTree.Node|nil
-function Picker:get_node()
-  if not self.tree then
-    return nil
-  end
-  return self.tree:get_node()
-end
-
---- Refresh the tree (reload data)
-function Picker:refresh()
-  self:load()
 end
 
 return M

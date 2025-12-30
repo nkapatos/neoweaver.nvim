@@ -60,6 +60,7 @@ end
 ---@type ViewSource
 M.source = {
   name = "collections",
+  poll_interval = 5000, -- 5 seconds (stub value for testing)
   load_data = load_data,
   prepare_node = prepare_node,
   get_stats = get_stats,
