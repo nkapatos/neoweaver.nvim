@@ -2,6 +2,13 @@
 --- collections.lua - Collection management for Neoweaver (v3)
 --- Handles collection listing, creation, deletion, and hierarchy management
 ---
+--- TODO: When picker refactor PoC is complete, move the following to collections/view.lua:
+--- - build_tree_nodes() -> ViewSource.load_data
+--- - handle_create() -> ViewSource.actions.create
+--- - handle_rename() -> ViewSource.actions.rename
+--- - handle_delete() -> ViewSource.actions.delete
+--- - build_collection_nodes_recursive() -> internal helper in view.lua
+---
 local api = require("neoweaver._internal.api")
 
 local M = {}

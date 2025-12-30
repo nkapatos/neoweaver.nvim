@@ -7,8 +7,11 @@
 local api = require("neoweaver._internal.api")
 local buffer_manager = require("neoweaver._internal.buffer.manager")
 local diff = require("neoweaver._internal.diff")
-local picker = require("neoweaver._internal.ui.picker")
 local config_module = require("neoweaver._internal.config")
+
+-- TODO: Remove when picker refactor PoC is complete
+-- Old picker import commented out - functionality moved to collections/view.lua
+-- local picker = require("neoweaver._internal.ui.picker")
 
 -- Debounce state for create_note
 local last_create_time = 0
@@ -114,7 +117,11 @@ handle_conflict = function(bufnr, note_id)
 end
 
 --- List all notes using nui picker
+--- TODO: Remove when picker refactor PoC is complete
+--- This function is disabled - functionality moved to collections/view.lua
 function M.list_notes()
+  vim.notify("list_notes() disabled - use explorer with collections view", vim.log.levels.WARN)
+  --[[ Original implementation commented out for picker refactor PoC
   ---@type mind.v3.ListNotesRequest
   local req = {
     pageSize = 100,
@@ -151,6 +158,7 @@ function M.list_notes()
       border = cfg.border,
     })
   end)
+  --]]
 end
 
 --- Create a new note (server-first approach with auto-generated title)
@@ -375,7 +383,11 @@ function M.delete_note(note_id)
 end
 
 --- Find notes by title using interactive search picker
+--- TODO: Remove when picker refactor PoC is complete
+--- This function is disabled - functionality will be reimplemented with new picker
 function M.find_notes()
+  vim.notify("find_notes() disabled - pending picker refactor", vim.log.levels.WARN)
+  --[[ Original implementation commented out for picker refactor PoC
   local search_picker = require("neoweaver._internal.ui.search_picker")
 
   --- Search function - calls FindNotes API
@@ -426,6 +438,7 @@ function M.find_notes()
       -- Optional: handle picker close
     end,
   })
+  --]]
 end
 
 function M.setup(opts)
