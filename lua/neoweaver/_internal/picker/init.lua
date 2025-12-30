@@ -57,25 +57,89 @@ end
 ---@param bufnr number Buffer number to render into
 function Picker:mount(bufnr)
   self.bufnr = bufnr
-  -- TODO: Create NuiTree with source.prepare_node
-  -- TODO: Bind keymaps from config, delegating to source.actions
+
+  -- Create NuiTree with source's prepare_node for rendering
+  self.tree = NuiTree({
+    bufnr = bufnr,
+    prepare_node = self.source.prepare_node,
+    nodes = {}, -- Start empty, load() will populate
+  })
+
+  -- Bind keymaps from config, delegating to source.actions
+  self:_bind_keymaps()
+
+  -- Bind navigation keymaps (always present)
+  self:_bind_navigation()
+end
+
+--- Bind action keymaps from config
+function Picker:_bind_keymaps()
+  local opts = { noremap = true, nowait = true, buffer = self.bufnr }
+
+  for key, action_name in pairs(self.config.keymaps) do
+    if action_name == "close" then
+      -- Special case: close is handled by host (explorer), not source
+      -- Skip for now, explorer will handle this
+    elseif self.source.actions[action_name] then
+      vim.keymap.set("n", key, function()
+        local node = self:get_node()
+        self.source.actions[action_name](node)
+      end, opts)
+    end
+  end
+end
+
+--- Bind navigation keymaps (expand/collapse, movement)
+function Picker:_bind_navigation()
+  local opts = { noremap = true, nowait = true, buffer = self.bufnr }
+
+  -- Expand/collapse on enter (if node has children and select action not bound)
+  -- Movement is handled by normal vim j/k
+
+  -- Toggle expand/collapse
+  vim.keymap.set("n", "l", function()
+    local node = self:get_node()
+    if node and node:has_children() then
+      if node:is_expanded() then
+        node:collapse()
+      else
+        node:expand()
+      end
+      self.tree:render()
+    end
+  end, opts)
+
+  vim.keymap.set("n", "h", function()
+    local node = self:get_node()
+    if node and node:is_expanded() then
+      node:collapse()
+      self.tree:render()
+    end
+  end, opts)
 end
 
 --- Load data from the source and render
 function Picker:load()
-  -- TODO: Call source.load_data, then tree:set_nodes and tree:render
+  self.source.load_data(function(nodes, stats)
+    if self.tree then
+      self.tree:set_nodes(nodes)
+      self.tree:render()
+    end
+  end)
 end
 
 --- Get the currently selected node
 ---@return NuiTree.Node|nil
 function Picker:get_node()
-  -- TODO: Return tree:get_node()
-  return nil
+  if not self.tree then
+    return nil
+  end
+  return self.tree:get_node()
 end
 
 --- Refresh the tree (reload data)
 function Picker:refresh()
-  -- TODO: Reload data and re-render
+  self:load()
 end
 
 return M

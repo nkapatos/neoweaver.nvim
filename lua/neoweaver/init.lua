@@ -12,6 +12,12 @@
 ---@module neoweaver
 local M = {}
 
+-- Explorer and view modules
+-- Views self-register with explorer on require
+local explorer = require("neoweaver._internal.explorer")
+require("neoweaver._internal.collections.view")
+require("neoweaver._internal.tags.view")
+
 --- Setup the neoweaver plugin
 ---
 --- Configures the API client, note handlers, and optional keymaps.
@@ -193,6 +199,6 @@ function M.get_config()
 end
 
 --- Explorer module for browsing collections and notes
-M.explorer = require("neoweaver._internal.explorer")
+M.explorer = explorer
 
 return M

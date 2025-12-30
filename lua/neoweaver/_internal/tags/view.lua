@@ -20,6 +20,7 @@
 
 local NuiTree = require("nui.tree")
 local NuiLine = require("nui.line")
+local explorer = require("neoweaver._internal.explorer")
 
 local M = {}
 
@@ -35,6 +36,7 @@ local mock_tags = {
 --- Build tree nodes from mock tag data
 ---@param callback fun(nodes: NuiTree.Node[], stats: ViewStats)
 local function load_data(callback)
+  vim.notify("[tags/view] load_data called (mock)", vim.log.levels.INFO)
   local nodes = {}
   for _, tag in ipairs(mock_tags) do
     table.insert(nodes, NuiTree.Node({
@@ -74,26 +76,29 @@ M.source = {
     --- Select tag (filter by tag)
     ---@param node NuiTree.Node
     select = function(node)
-      vim.notify("Selected tag: " .. (node.text or "???"), vim.log.levels.INFO)
+      vim.notify("[tags/view] Selected tag: " .. (node.text or "???"), vim.log.levels.INFO)
     end,
 
     --- Create new tag (stub)
     create = function()
-      vim.notify("Create tag: not implemented (mock)", vim.log.levels.WARN)
+      vim.notify("[tags/view] Create tag: not implemented (mock)", vim.log.levels.WARN)
     end,
 
     --- Rename tag (stub)
     ---@param node NuiTree.Node
     rename = function(node)
-      vim.notify("Rename tag: not implemented (mock)", vim.log.levels.WARN)
+      vim.notify("[tags/view] Rename tag: not implemented (mock)", vim.log.levels.WARN)
     end,
 
     --- Delete tag (stub)
     ---@param node NuiTree.Node
     delete = function(node)
-      vim.notify("Delete tag: not implemented (mock)", vim.log.levels.WARN)
+      vim.notify("[tags/view] Delete tag: not implemented (mock)", vim.log.levels.WARN)
     end,
   },
 }
+
+-- Self-register with explorer
+explorer.register_view("tags", M.source)
 
 return M

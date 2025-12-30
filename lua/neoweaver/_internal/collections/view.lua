@@ -26,6 +26,7 @@
 
 local NuiTree = require("nui.tree")
 local NuiLine = require("nui.line")
+local explorer = require("neoweaver._internal.explorer")
 
 local M = {}
 
@@ -33,8 +34,8 @@ local M = {}
 --- TODO: Move logic from collections.build_tree_nodes
 ---@param callback fun(nodes: NuiTree.Node[], stats: ViewStats)
 local function load_data(callback)
-  -- TODO: Fetch from backend, convert to NuiTree.Node[]
-  -- For now, return empty
+  -- Stub: notify and return empty
+  vim.notify("[collections/view] load_data called (stub)", vim.log.levels.INFO)
   callback({}, { items = { { label = "Collections", count = 0 }, { label = "Notes", count = 0 } } })
 end
 
@@ -44,7 +45,6 @@ end
 ---@param parent NuiTree.Node|nil
 ---@return NuiLine[]
 local function prepare_node(node, parent)
-  -- TODO: Implement domain-specific rendering
   local line = NuiLine()
   line:append(string.rep("  ", node:get_depth() - 1))
   line:append(node.text or node.name or "???")
@@ -54,7 +54,6 @@ end
 --- Get stats for statusline
 ---@return ViewStats
 local function get_stats()
-  -- TODO: Track actual counts
   return { items = { { label = "Collections", count = 0 }, { label = "Notes", count = 0 } } }
 end
 
@@ -68,26 +67,29 @@ M.source = {
     --- Open note or toggle collection
     ---@param node NuiTree.Node
     select = function(node)
-      -- TODO: If note, open buffer. If collection, toggle expand.
+      vim.notify("[collections/view] select action (stub)", vim.log.levels.INFO)
     end,
 
     --- Create new collection
     create = function()
-      -- TODO: Prompt for name, call backend
+      vim.notify("[collections/view] create action (stub)", vim.log.levels.INFO)
     end,
 
     --- Rename collection
     ---@param node NuiTree.Node
     rename = function(node)
-      -- TODO: Prompt for new name, call backend
+      vim.notify("[collections/view] rename action (stub)", vim.log.levels.INFO)
     end,
 
     --- Delete collection
     ---@param node NuiTree.Node
     delete = function(node)
-      -- TODO: Confirm, call backend
+      vim.notify("[collections/view] delete action (stub)", vim.log.levels.INFO)
     end,
   },
 }
+
+-- Self-register with explorer
+explorer.register_view("collections", M.source)
 
 return M
