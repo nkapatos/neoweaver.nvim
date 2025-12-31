@@ -403,11 +403,90 @@ M.source = {
       end, { noremap = true })
     end,
 
-    --- Rename collection (not allowed for system collections)
+    --- Rename collection or note
+    --- System collections cannot be renamed
     ---@param node NuiTree.Node
     rename = function(node)
-      -- TODO: Implement - validate not system, prompt for name, call API
-      vim.notify("[collections/view] rename action (stub)", vim.log.levels.INFO)
+      -- Don't allow renaming system collections
+      if node.type == "collection" and node.is_system then
+        vim.notify("Cannot rename system collections", vim.log.levels.WARN)
+        return
+      end
+
+      local input = Input({
+        relative = "cursor",
+        position = { row = 1, col = 0 },
+        size = { width = 40 },
+        border = {
+          style = "rounded",
+          text = {
+            top = " Rename ",
+            top_align = "center",
+          },
+        },
+        win_options = {
+          winhighlight = "Normal:Normal,FloatBorder:FloatBorder",
+        },
+      }, {
+        prompt = "> ",
+        default_value = node.name,
+        on_close = function()
+          -- User cancelled, do nothing
+        end,
+        on_submit = function(value)
+          -- Trim whitespace
+          value = vim.trim(value)
+
+          if value == "" then
+            vim.notify("Name cannot be empty", vim.log.levels.WARN)
+            return
+          end
+
+          if value == node.name then
+            -- No change
+            return
+          end
+
+          if node.type == "collection" then
+            -- Rename collection
+            collections.rename_collection(node.collection_id, value, function(collection, err)
+              if err then
+                vim.notify("Failed to rename collection: " .. (err.message or vim.inspect(err)), vim.log.levels.ERROR)
+                return
+              end
+              vim.notify("Renamed collection to: " .. collection.displayName, vim.log.levels.INFO)
+              -- TODO: refresh_callback() when implemented
+            end)
+          elseif node.type == "note" then
+            -- Rename note: fetch first to get etag, then patch
+            api.notes.get({ id = node.note_id }, function(get_res)
+              if get_res.error then
+                vim.notify("Failed to fetch note: " .. (get_res.error.message or vim.inspect(get_res.error)), vim.log.levels.ERROR)
+                return
+              end
+
+              local note = get_res.data
+              local etag = note.etag
+
+              api.notes.patch({ id = node.note_id, title = value }, etag, function(patch_res)
+                if patch_res.error then
+                  vim.notify("Failed to rename note: " .. (patch_res.error.message or vim.inspect(patch_res.error)), vim.log.levels.ERROR)
+                  return
+                end
+                vim.notify("Renamed note to: " .. patch_res.data.title, vim.log.levels.INFO)
+                -- TODO: refresh_callback() when implemented
+              end)
+            end)
+          end
+        end,
+      })
+
+      input:mount()
+
+      -- Add Esc to close in normal mode
+      input:map("n", "<Esc>", function()
+        input:unmount()
+      end, { noremap = true })
     end,
 
     --- Delete collection (not allowed for system collections)

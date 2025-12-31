@@ -236,6 +236,20 @@ M.notes = {
     }, cb)
   end,
 
+  -- POST /mind.v3.NotesService/UpdateNote
+  -- Request: mind.v3.UpdateNoteRequest (partial update with field masking)
+  -- Response: mind.v3.Note
+  -- Requires If-Match header with etag for optimistic locking
+  patch = function(req, etag, cb)
+    request("POST", "/mind.v3.NotesService/UpdateNote", {
+      body = vim.json.encode(req),
+      headers = {
+        ["Content-Type"] = "application/json",
+        ["If-Match"] = etag,
+      },
+    }, cb)
+  end,
+
   -- POST /mind.v3.NotesService/DeleteNote
   -- Request: mind.v3.DeleteNoteRequest
   -- Response: google.protobuf.Empty
