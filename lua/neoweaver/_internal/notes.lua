@@ -45,6 +45,40 @@ local M = {}
 -- Forward declarations
 local handle_conflict
 
+--- Open a note in a buffer (internal helper)
+--- Creates buffer via buffer_manager and sets all note-related buffer variables
+---@param note table Note data from API response
+---@param opts? { body?: string, modified?: boolean } Optional overrides
+---@return integer bufnr The buffer number
+local function open_note_buffer(note, opts)
+  opts = opts or {}
+  local note_id = tonumber(note.id)
+
+  local bufnr = buffer_manager.create({
+    type = "note",
+    id = note_id,
+    name = note.title or "Untitled",
+    filetype = "markdown",
+    modifiable = true,
+  })
+
+  -- Set buffer content
+  local body = opts.body or note.body or ""
+  local lines = vim.split(body, "\n")
+  vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
+  vim.api.nvim_set_option_value("modified", opts.modified or false, { buf = bufnr })
+
+  -- Set buffer-local note metadata
+  vim.b[bufnr].note_id = note_id
+  vim.b[bufnr].note_title = note.title
+  vim.b[bufnr].note_etag = note.etag
+  vim.b[bufnr].note_collection_id = note.collectionId
+  vim.b[bufnr].note_type_id = note.noteTypeId
+  vim.b[bufnr].note_metadata = note.metadata or {}
+
+  return bufnr
+end
+
 --- Handle ETag conflict by showing diff and resolving
 ---@param bufnr integer
 ---@param note_id integer
@@ -191,26 +225,7 @@ function M.new_note()
     end
 
     local note = res.data
-    local note_id = tonumber(note.id)
-
-    local bufnr = buffer_manager.create({
-      type = "note",
-      id = note_id,
-      name = note.title,
-      filetype = "markdown",
-      modifiable = true,
-    })
-
-    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {})
-    vim.api.nvim_set_option_value("modified", allow_multiple_empty_notes, { buf = bufnr })
-
-    vim.b[bufnr].note_id = note_id
-    vim.b[bufnr].note_title = note.title
-    vim.b[bufnr].note_etag = note.etag
-    vim.b[bufnr].note_collection_id = note.collectionId
-    vim.b[bufnr].note_type_id = note.noteTypeId
-    vim.b[bufnr].note_metadata = note.metadata or {}
-
+    open_note_buffer(note, { body = "", modified = allow_multiple_empty_notes })
     vim.notify("Note created: " .. note.title, vim.log.levels.INFO)
   end)
 end
@@ -234,26 +249,7 @@ function M.create_note(title, collection_id, callback)
     end
 
     local note = res.data
-    local note_id = tonumber(note.id)
-
-    local bufnr = buffer_manager.create({
-      type = "note",
-      id = note_id,
-      name = note.title,
-      filetype = "markdown",
-      modifiable = true,
-    })
-
-    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {})
-    vim.api.nvim_set_option_value("modified", false, { buf = bufnr })
-
-    vim.b[bufnr].note_id = note_id
-    vim.b[bufnr].note_title = note.title
-    vim.b[bufnr].note_etag = note.etag
-    vim.b[bufnr].note_collection_id = note.collectionId
-    vim.b[bufnr].note_type_id = note.noteTypeId
-    vim.b[bufnr].note_metadata = note.metadata or {}
-
+    open_note_buffer(note, { body = "" })
     vim.notify("Note created: " .. note.title, vim.log.levels.INFO)
 
     if callback then
@@ -285,26 +281,7 @@ function M.open_note(note_id)
       return
     end
 
-    local note = res.data
-
-    local bufnr = buffer_manager.create({
-      type = "note",
-      id = note_id,
-      name = note.title or "Untitled",
-      filetype = "markdown",
-      modifiable = true,
-    })
-
-    local lines = vim.split(note.body or "", "\n")
-    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
-    vim.api.nvim_set_option_value("modified", false, { buf = bufnr })
-
-    vim.b[bufnr].note_id = note_id
-    vim.b[bufnr].note_title = note.title
-    vim.b[bufnr].note_etag = note.etag
-    vim.b[bufnr].note_collection_id = note.collectionId
-    vim.b[bufnr].note_type_id = note.noteTypeId
-    vim.b[bufnr].note_metadata = note.metadata or {}
+    open_note_buffer(res.data)
   end)
 end
 
