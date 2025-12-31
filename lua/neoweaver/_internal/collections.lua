@@ -60,6 +60,13 @@ function M.list_collections_with_notes(opts, cb)
       return
     end
 
+    -- Normalize string IDs to numbers (protobuf int64 serializes as strings in JSON)
+    for _, collection in ipairs(collections) do
+      collection.id = tonumber(collection.id)
+      collection.parentId = collection.parentId and tonumber(collection.parentId) or nil
+      collection.position = collection.position and tonumber(collection.position) or nil
+    end
+
     -- Step 2: Fetch all notes with field masking (only id, title, collectionId)
     ---@type mind.v3.ListNotesRequest
     local notes_req = {
@@ -76,6 +83,12 @@ function M.list_collections_with_notes(opts, cb)
       ---@type mind.v3.ListNotesResponse
       local notes_list = notes_res.data
       local notes = notes_list.notes or {}
+
+      -- Normalize string IDs to numbers (protobuf int64 serializes as strings in JSON)
+      for _, note in ipairs(notes) do
+        note.id = tonumber(note.id)
+        note.collectionId = tonumber(note.collectionId)
+      end
 
       -- Step 3: Build hashmap - group notes by collection_id
       local notes_by_collection = {}
