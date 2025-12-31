@@ -130,11 +130,14 @@ function Picker:onMount(bufnr)
 end
 
 --- Called when picker becomes visible
---- Triggers data load and starts polling if configured
+--- Uses refresh() to preserve tree state (expanded nodes, cursor) on toggle
+--- Starts polling if configured
+---
+--- NOTE: No staleness optimization needed here. Future path is SSE (server-sent events)
+--- which eliminates polling entirely - server pushes changes, client just subscribes.
 function Picker:onShow()
   self.is_visible = true
-  -- TODO: Consider adding staleness check to avoid reload if data is fresh
-  self:load()
+  self:refresh()
   -- TODO: Re-enable polling once load_data is implemented with actual API calls
   -- self:_start_polling()
 end
