@@ -1,54 +1,9 @@
 ---
 --- collections/view.lua - ViewSource implementation for collections domain
 ---
---- PURPOSE:
---- Implements the ViewSource interface for the collections domain.
---- This file contains all domain-specific logic for displaying collections/notes
---- in the picker.
----
---- ARCHITECTURE DECISION RECORD (ADR):
----
---- This ViewSource implementation demonstrates the domain-specific responsibilities:
----
---- 1. LOAD_DATA - Fetches and transforms data:
----    - Calls collections.list_collections_with_notes() to fetch from API
----    - Builds NuiTree.Node[] hierarchy with domain properties attached:
----      - type: "collection", "note"
----      - is_system: boolean (system collections can't be deleted/renamed)
----      - is_root: boolean (default collection displayed as server name)
----      - collection_id, note_id: for API operations
----      - icon, highlight: for rendering
----    - Uses default collection (id=1) as root node, displayed with server name
----    - Returns nodes + stats via callback
----
---- 2. PREPARE_NODE - Renders nodes using domain knowledge:
----    - Indentation based on tree depth
----    - Expand/collapse indicator (▾/▸) for nodes with children
----    - Icons based on type (server, collection, system collection, note)
----    - Highlights based on type
----    - "(default)" suffix for default items
----
---- 3. ACTIONS - CRUD operations with domain validation:
----    - select: Opens note (notes.open_note) or no-op for collections
----    - create: Creates collection under server/collection node
----    - rename: Renames collection (not allowed for system collections)
----    - delete: Deletes collection (not allowed for system collections)
----    - All actions receive (node, refresh_callback)
----    - Actions call API, then refresh_callback() on success
----
---- 4. POLL_INTERVAL - Domain decides polling frequency:
----    - Collections poll every 5 seconds (configurable)
----    - Picker manages the timer, this just provides the interval
----
---- NODE TYPES AND PROPERTIES:
----   collection: { type, name, icon, highlight, collection_id, is_system, is_root? }
----              - is_root=true for default collection (id=1) displayed as server name
----   note:       { type, name, icon, highlight, note_id, collection_id }
----
---- REFERENCE:
---- See _refactor_ref/explorer/tree.lua for original prepare_node logic
---- See _refactor_ref/explorer/init.lua for original action handlers
---- See collections.lua for API functions (list_collections, create_collection, etc.)
+--- Node types: collection (has collection_id, is_system, is_root?), note (has note_id, collection_id)
+--- Default collection (id=1) becomes root node displayed with server name.
+--- Create action: "name" = note, "name/" = collection (trailing slash convention).
 ---
 
 local NuiTree = require("nui.tree")

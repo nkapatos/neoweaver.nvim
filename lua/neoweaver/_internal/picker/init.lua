@@ -1,78 +1,11 @@
 ---
---- picker/init.lua - Generic tree picker component with lifecycle hooks
+--- picker/init.lua - Generic tree picker component
 ---
---- PURPOSE:
---- Self-contained, host-agnostic component that displays hierarchical data using NuiTree.
---- Manages its own data loading and polling based on lifecycle events.
---- Can be hosted in any buffer (sidebar, floating window, embedded).
+--- Host-agnostic tree viewer using NuiTree. Hosts (explorer, floating window)
+--- provide a buffer and call lifecycle hooks. ViewSource provides domain data.
 ---
---- ARCHITECTURE DECISION RECORD (ADR):
----
---- The picker is designed as a generic, reusable tree component that:
----
---- 1. OWNS THE TREE: Picker creates and manages the NuiTree instance. It handles
----    all tree operations: rendering, navigation, expand/collapse, cursor position,
----    and state preservation (expanded nodes, cursor) on refresh.
----
---- 2. DELEGATES TO VIEWSOURCE: Picker doesn't know about domain-specific data.
----    It receives a ViewSource that provides:
----    - load_data(callback): Fetches data, returns NuiTree.Node[] with domain properties
----    - prepare_node(node): Renders node to NuiLine[] using domain knowledge
----    - actions: CRUD handlers that receive (node, refresh_callback)
----
---- 3. HOST-AGNOSTIC: Picker doesn't create windows. A host (explorer sidebar,
----    floating window, embedded buffer) provides the bufnr and calls lifecycle hooks.
----    The same picker can be displayed anywhere.
----
---- 4. LIFECYCLE-DRIVEN: Hosts control picker via lifecycle hooks:
----    - onMount(bufnr): Attach to buffer, create tree, bind keymaps
----    - onShow(): Load data, start polling (if configured)
----    - onHide(): Stop polling, preserve state
----    - onUnmount(): Full cleanup
----
---- 5. ACTION FLOW: When user triggers an action (e.g., delete):
----    - Picker gets node from tree (has domain properties like is_system)
----    - Picker calls source.actions.delete(node, refresh_callback)
----    - ViewSource validates (e.g., can't delete system collections)
----    - ViewSource calls API
----    - ViewSource calls refresh_callback() to trigger picker reload
----
---- 6. POLLING: Picker manages polling timer internally based on source.poll_interval.
----    Polling starts on onShow(), stops on onHide(). This ensures no wasted
----    network calls when picker is hidden.
----
---- WHY VIEWSOURCE RETURNS NuiTree.Node[]:
---- - Domain knows the data shape (is_system, collection_id, note_id, etc.)
---- - These properties are attached to NuiTree.Node and preserved
---- - prepare_node() uses these properties for rendering
---- - Actions use these properties for validation (e.g., can't delete system collections)
---- - Keeps picker generic - it just passes nodes around
----
---- RESPONSIBILITIES:
---- - Create and manage NuiTree instance
---- - Bind keymaps based on PickerConfig
---- - Delegate actions to ViewSource.actions with refresh callback
---- - Handle tree navigation (expand/collapse, cursor movement)
---- - Preserve tree state (expanded nodes, cursor) on refresh
---- - Manage data loading lifecycle (load on show, poll while visible)
---- - Start/stop polling based on visibility (onShow/onHide)
----
---- DOES NOT:
---- - Know about specific domains (collections, tags, etc.)
---- - Create windows (host's responsibility)
---- - Define what actions mean (ViewSource's responsibility)
---- - Know where it's displayed (host-agnostic)
----
---- USAGE:
---- local picker = require("neoweaver._internal.picker")
---- local my_picker = picker.new(view_source, config)
---- my_picker:onMount(bufnr)
---- my_picker:onShow()    -- triggers load + starts polling
---- my_picker:onHide()    -- stops polling
---- my_picker:onUnmount() -- full cleanup
----
---- REFERENCE:
---- See _refactor_ref/explorer/ and _refactor_ref/picker/ for original implementation
+--- Lifecycle: onMount(bufnr) → onShow() → onHide() → onUnmount()
+--- ViewSource interface: { load_data, prepare_node, actions, poll_interval? }
 ---
 
 local NuiTree = require("nui.tree")
@@ -89,9 +22,8 @@ local M = {}
 local Picker = {}
 Picker.__index = Picker
 
---- Create a new picker instance
----@param source ViewSource The view source providing data and actions
----@param config PickerConfig The configuration for keymaps
+---@param source ViewSource
+---@param config PickerConfig
 ---@return Picker
 function M.new(source, config)
   local self = setmetatable({}, Picker)
@@ -108,49 +40,37 @@ end
 -- Lifecycle Hooks
 --
 
---- Mount the picker to a buffer
---- Called once when picker is attached to a buffer
----@param bufnr number Buffer number to render into
+--- Attach picker to buffer, create tree, bind keymaps
+---@param bufnr number
 function Picker:onMount(bufnr)
   self.bufnr = bufnr
   self.is_visible = false
 
-  -- Create NuiTree with source's prepare_node for rendering
   self.tree = NuiTree({
     bufnr = bufnr,
     prepare_node = self.source.prepare_node,
-    nodes = {}, -- Start empty, onShow will trigger load
+    nodes = {},
   })
 
-  -- Bind keymaps from config, delegating to source.actions
   self:_bind_keymaps()
-
-  -- Bind navigation keymaps (always present)
   self:_bind_navigation()
 end
 
---- Called when picker becomes visible
---- Uses refresh() to preserve tree state (expanded nodes, cursor) on toggle
---- Starts polling if configured
----
---- NOTE: No staleness optimization needed here. Future path is SSE (server-sent events)
---- which eliminates polling entirely - server pushes changes, client just subscribes.
+--- Load data and start polling (future: SSE will replace polling)
 function Picker:onShow()
   self.is_visible = true
   self:refresh()
-  -- TODO: Re-enable polling once load_data is implemented with actual API calls
+  -- TODO: Enable polling when ready
   -- self:_start_polling()
 end
 
---- Called when picker is hidden
---- Stops polling to avoid unnecessary network calls
+--- Stop polling, preserve tree state
 function Picker:onHide()
   self.is_visible = false
   self:_stop_polling()
 end
 
---- Called on full cleanup
---- Stops polling and clears all state
+--- Full cleanup
 function Picker:onUnmount()
   self:_stop_polling()
   self.tree = nil
@@ -159,59 +79,29 @@ function Picker:onUnmount()
 end
 
 --
--- Polling
---
--- FUTURE: Server-Sent Events (SSE) vs Polling
---
--- Current approach: Client-side polling with configurable interval.
--- This works but has drawbacks:
--- - Unnecessary network traffic when no changes
--- - Latency between change and display (up to poll_interval)
--- - Wastes server resources
---
--- Future approach: SSE (Server-Sent Events) for push-based updates
--- - Server maintains long-lived connection
--- - Pushes change events when data mutates
--- - Client refreshes only when notified
---
--- Investigation path:
--- - plenary.curl may support long-lived connections for SSE
--- - Server would need SSE endpoint (e.g., /events/collections)
--- - Event types: collection_created, collection_updated, note_created, etc.
--- - Picker subscribes on onShow(), unsubscribes on onHide()
---
--- For now, polling is disabled (see onShow). Enable when ready to test.
+-- Polling (TODO: Replace with SSE for push-based updates)
 --
 
---- Start polling timer based on source.poll_interval
---- Polling only runs while picker is visible
 function Picker:_start_polling()
   local interval = self.source.poll_interval
   if not interval then
     return
   end
 
-  -- Stop any existing timer first
   self:_stop_polling()
 
   self.poll_timer = vim.loop.new_timer()
   self.poll_timer:start(interval, interval, vim.schedule_wrap(function()
     if self.is_visible then
-      vim.notify("[picker:" .. self.source.name .. "] polling tick", vim.log.levels.INFO)
       self:load()
     end
   end))
-
-  vim.notify("[picker:" .. self.source.name .. "] polling started: " .. interval .. "ms", vim.log.levels.INFO)
 end
 
---- Stop polling timer if running
 function Picker:_stop_polling()
   if not self.poll_timer then
     return
   end
-
-  vim.notify("[picker:" .. self.source.name .. "] polling stopped", vim.log.levels.INFO)
   self.poll_timer:stop()
   self.poll_timer:close()
   self.poll_timer = nil
@@ -221,8 +111,7 @@ end
 -- Data Loading
 --
 
---- Load data from the source and render
----@param on_complete? function Optional callback after data is loaded and rendered
+---@param on_complete? function
 function Picker:load(on_complete)
   self.source.load_data(function(nodes, stats)
     if self.tree then
@@ -235,7 +124,6 @@ function Picker:load(on_complete)
   end)
 end
 
---- Get the currently selected node
 ---@return NuiTree.Node|nil
 function Picker:get_node()
   if not self.tree then
@@ -245,27 +133,10 @@ function Picker:get_node()
 end
 
 --
--- State Preservation
---
--- DESIGN DECISION: Full reload with state preservation (MVP approach)
---
--- Why full reload instead of targeted tree mutations:
--- - Simple and reliable - works for all CRUD scenarios
--- - NuiTree does support add_node/remove_node/set_nodes(nodes, parent_id) for targeted updates
--- - However, targeted updates require knowing exactly what changed and where
--- - For MVP, full reload is acceptable since tree data is small (<1000 nodes typically)
--- - State preservation makes the reload feel seamless to users
---
--- Future optimization path (smart_refresh):
--- - After create: tree:add_node(new_node, parent_id)
--- - After delete: tree:remove_node(node_id)
--- - After rename: just update node properties and re-render (no reload needed)
--- - This avoids network round-trip but requires careful state management
+-- State Preservation (preserves expanded nodes and cursor across reloads)
 --
 
---- Get all expanded node IDs from current tree
---- Walks tree recursively and collects IDs where node:is_expanded() == true
----@return string[] Array of node IDs that are expanded
+---@return string[]
 function Picker:_get_expanded_node_ids()
   local expanded_ids = {}
 
@@ -366,19 +237,7 @@ end
 --
 
 --- Bind action keymaps from config
----
---- DESIGN DECISION: Refresh callback pattern
----
---- Actions that mutate data (create, rename, delete) receive a refresh_cb parameter.
---- After successful mutation, the action calls refresh_cb() to trigger tree reload.
----
---- Why callback instead of return value:
---- - Actions are async (API calls use callbacks)
---- - Action decides when/if to refresh (e.g., skip refresh if user cancels)
---- - Keeps picker generic - doesn't know which actions mutate data
----
---- Note: "select" action does NOT receive refresh_cb since it doesn't mutate data.
----
+--- Mutation actions (create, rename, delete) receive refresh_cb; select does not.
 function Picker:_bind_keymaps()
   local opts = { noremap = true, nowait = true, buffer = self.bufnr }
 
