@@ -13,11 +13,12 @@
 --- 1. LOAD_DATA - Fetches and transforms data:
 ---    - Calls collections.list_collections_with_notes() to fetch from API
 ---    - Builds NuiTree.Node[] hierarchy with domain properties attached:
----      - type: "server", "collection", "note"
+---      - type: "collection", "note"
 ---      - is_system: boolean (system collections can't be deleted/renamed)
+---      - is_root: boolean (default collection displayed as server name)
 ---      - collection_id, note_id: for API operations
 ---      - icon, highlight: for rendering
----    - Wraps in server node for multi-server support
+---    - Uses default collection (id=1) as root node, displayed with server name
 ---    - Returns nodes + stats via callback
 ---
 --- 2. PREPARE_NODE - Renders nodes using domain knowledge:
@@ -40,8 +41,8 @@
 ---    - Picker manages the timer, this just provides the interval
 ---
 --- NODE TYPES AND PROPERTIES:
----   server:     { type, name, icon, highlight, server_name, server_url, is_default }
----   collection: { type, name, icon, highlight, collection_id, is_system }
+---   collection: { type, name, icon, highlight, collection_id, is_system, is_root? }
+---              - is_root=true for default collection (id=1) displayed as server name
 ---   note:       { type, name, icon, highlight, note_id, collection_id }
 ---
 --- REFERENCE:
@@ -127,40 +128,99 @@ local function load_data(callback)
       return
     end
 
-    -- Build collection hierarchy
-    local collection_nodes = build_collection_nodes_recursive(
-      data.collections,
-      data.notes_by_collection or {},
-      nil -- root collections have no parent
-    )
-
-    -- Wrap in server node
-    local servers = api.config.servers
-    local current_server = api.config.current_server
-    local root_nodes = {}
-
-    if current_server and servers[current_server] then
-      local server_node = NuiTree.Node({
-        id = "server:" .. current_server,
-        type = "server",
-        name = current_server,
-        icon = "󰒋",
-        highlight = "Title",
-        server_name = current_server,
-        server_url = servers[current_server].url,
-        is_default = true,
-      }, collection_nodes)
-
-      -- Auto-expand the default server node
-      server_node:expand()
-
-      table.insert(root_nodes, server_node)
-    else
-      -- Fallback: show collections directly (no server node)
-      root_nodes = collection_nodes
+    -- Find default collection (id=1) - this becomes our root node displayed as "server"
+    local default_collection = nil
+    for _, collection in ipairs(data.collections) do
+      if collection.id == 1 then
+        default_collection = collection
+        break
+      end
     end
 
-    -- Count notes for stats
+    if not default_collection then
+      vim.notify("Default collection not found", vim.log.levels.ERROR)
+      callback({}, { items = { { label = "Collections", count = 0 }, { label = "Notes", count = 0 } } })
+      return
+    end
+
+    -- Build children of default collection
+    -- parent_id = 1 (default collection) OR parent_id = nil (legacy top-level collections)
+    local child_nodes = {}
+
+    -- Add notes directly under default collection
+    local default_notes = data.notes_by_collection and data.notes_by_collection[1] or {}
+    for _, note in ipairs(default_notes) do
+      local note_node = NuiTree.Node({
+        id = "note:" .. note.id,
+        type = "note",
+        name = note.title,
+        icon = "󰈙",
+        highlight = "String",
+        note_id = note.id,
+        collection_id = note.collectionId,
+      })
+      table.insert(child_nodes, note_node)
+    end
+
+    -- Add child collections (parent_id = 1 or nil for legacy)
+    for _, collection in ipairs(data.collections) do
+      if collection.id ~= 1 and (collection.parentId == 1 or collection.parentId == nil) then
+        local children = {}
+
+        -- Add note children first
+        local collection_notes = data.notes_by_collection and data.notes_by_collection[collection.id] or {}
+        for _, note in ipairs(collection_notes) do
+          local note_node = NuiTree.Node({
+            id = "note:" .. note.id,
+            type = "note",
+            name = note.title,
+            icon = "󰈙",
+            highlight = "String",
+            note_id = note.id,
+            collection_id = note.collectionId,
+          })
+          table.insert(children, note_node)
+        end
+
+        -- Then recursively add nested collections
+        local nested_collections = build_collection_nodes_recursive(data.collections, data.notes_by_collection or {}, collection.id)
+        vim.list_extend(children, nested_collections)
+
+        -- Create collection node
+        local collection_node = NuiTree.Node({
+          id = "collection:" .. collection.id,
+          type = "collection",
+          name = collection.displayName,
+          icon = collection.isSystem and "󰉖" or "󰉋",
+          highlight = collection.isSystem and "Special" or "Directory",
+          collection_id = collection.id,
+          is_system = collection.isSystem or false,
+        }, children)
+
+        table.insert(child_nodes, collection_node)
+      end
+    end
+
+    -- Create root node from default collection, displayed as server name
+    local servers = api.config.servers
+    local current_server = api.config.current_server
+    local server_name = current_server or "server"
+
+    local root_node = NuiTree.Node({
+      id = "collection:" .. default_collection.id,
+      type = "collection",
+      name = server_name, -- Display server name instead of "default"
+      icon = "󰒋",
+      highlight = "Title",
+      collection_id = default_collection.id,
+      is_system = true, -- Default collection is system-managed
+      is_root = true, -- Mark as root for special handling if needed
+    }, child_nodes)
+
+    -- Auto-expand the root node
+    root_node:expand()
+
+    -- Count notes for stats (exclude default collection from collection count since it's the root)
     local note_count = 0
     if data.notes_by_collection then
       for _, note_list in pairs(data.notes_by_collection) do
@@ -169,9 +229,9 @@ local function load_data(callback)
     end
 
     -- Return nodes and stats
-    callback(root_nodes, {
+    callback({ root_node }, {
       items = {
-        { label = "Collections", count = #data.collections },
+        { label = "Collections", count = #data.collections - 1 }, -- Exclude default collection from count
         { label = "Notes", count = note_count },
       },
     })
@@ -213,8 +273,8 @@ local function prepare_node(node, parent)
   -- Name with highlight
   line:append(node.name, node.highlight or "Normal")
 
-  -- Special suffix for default server
-  if node.is_default then
+  -- Special suffix for root node (default collection displayed as server)
+  if node.is_root then
     line:append(" ", "Comment")
     line:append("(default)", "Comment")
   end
