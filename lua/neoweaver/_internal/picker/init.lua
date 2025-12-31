@@ -158,6 +158,27 @@ end
 --
 -- Polling
 --
+-- FUTURE: Server-Sent Events (SSE) vs Polling
+--
+-- Current approach: Client-side polling with configurable interval.
+-- This works but has drawbacks:
+-- - Unnecessary network traffic when no changes
+-- - Latency between change and display (up to poll_interval)
+-- - Wastes server resources
+--
+-- Future approach: SSE (Server-Sent Events) for push-based updates
+-- - Server maintains long-lived connection
+-- - Pushes change events when data mutates
+-- - Client refreshes only when notified
+--
+-- Investigation path:
+-- - plenary.curl may support long-lived connections for SSE
+-- - Server would need SSE endpoint (e.g., /events/collections)
+-- - Event types: collection_created, collection_updated, note_created, etc.
+-- - Picker subscribes on onShow(), unsubscribes on onHide()
+--
+-- For now, polling is disabled (see onShow). Enable when ready to test.
+--
 
 --- Start polling timer based on source.poll_interval
 --- Polling only runs while picker is visible
@@ -198,11 +219,15 @@ end
 --
 
 --- Load data from the source and render
-function Picker:load()
+---@param on_complete? function Optional callback after data is loaded and rendered
+function Picker:load(on_complete)
   self.source.load_data(function(nodes, stats)
     if self.tree then
       self.tree:set_nodes(nodes)
       self.tree:render()
+      if on_complete then
+        on_complete()
+      end
     end
   end)
 end
@@ -216,9 +241,121 @@ function Picker:get_node()
   return self.tree:get_node()
 end
 
---- Refresh the tree (reload data)
+--
+-- State Preservation
+--
+-- DESIGN DECISION: Full reload with state preservation (MVP approach)
+--
+-- Why full reload instead of targeted tree mutations:
+-- - Simple and reliable - works for all CRUD scenarios
+-- - NuiTree does support add_node/remove_node/set_nodes(nodes, parent_id) for targeted updates
+-- - However, targeted updates require knowing exactly what changed and where
+-- - For MVP, full reload is acceptable since tree data is small (<1000 nodes typically)
+-- - State preservation makes the reload feel seamless to users
+--
+-- Future optimization path (smart_refresh):
+-- - After create: tree:add_node(new_node, parent_id)
+-- - After delete: tree:remove_node(node_id)
+-- - After rename: just update node properties and re-render (no reload needed)
+-- - This avoids network round-trip but requires careful state management
+--
+
+--- Get all expanded node IDs from current tree
+--- Walks tree recursively and collects IDs where node:is_expanded() == true
+---@return string[] Array of node IDs that are expanded
+function Picker:_get_expanded_node_ids()
+  local expanded_ids = {}
+
+  if not self.tree then
+    return expanded_ids
+  end
+
+  local function collect_expanded(node)
+    if node:is_expanded() then
+      table.insert(expanded_ids, node:get_id())
+    end
+    if node:has_children() then
+      for _, child in ipairs(self.tree:get_nodes(node:get_id())) do
+        collect_expanded(child)
+      end
+    end
+  end
+
+  -- Walk all root nodes
+  for _, node in ipairs(self.tree:get_nodes()) do
+    collect_expanded(node)
+  end
+
+  return expanded_ids
+end
+
+--- Restore expanded state for nodes by ID
+--- Nodes that no longer exist are silently skipped
+---@param node_ids string[] Array of node IDs to expand
+function Picker:_restore_expanded_nodes(node_ids)
+  if not self.tree then
+    return
+  end
+
+  for _, id in ipairs(node_ids) do
+    local node = self.tree:get_node(id)
+    if node then
+      node:expand()
+    end
+  end
+end
+
+--- Get the node ID under cursor
+---@return string|number|nil Node ID at cursor, or nil
+function Picker:_get_cursor_node_id()
+  if not self.tree or not self.bufnr then
+    return nil
+  end
+
+  -- Find window containing our buffer
+  local winid = vim.fn.win_findbuf(self.bufnr)[1]
+  if not winid or not vim.api.nvim_win_is_valid(winid) then
+    return nil
+  end
+
+  local node = self.tree:get_node()
+  return node and node:get_id() or nil
+end
+
+--- Move cursor to a specific node by ID
+--- Falls back gracefully if node doesn't exist (cursor stays where it is)
+---@param node_id string|number Node ID to focus
+function Picker:_set_cursor_to_node(node_id)
+  if not self.tree or not self.bufnr or not node_id then
+    return
+  end
+
+  local node, start_lnum, _ = self.tree:get_node(node_id)
+  if node and start_lnum then
+    local winid = vim.fn.win_findbuf(self.bufnr)[1]
+    if winid and vim.api.nvim_win_is_valid(winid) then
+      vim.api.nvim_win_set_cursor(winid, { start_lnum, 0 })
+    end
+  end
+end
+
+--- Refresh the tree with state preservation
+--- Captures expanded nodes and cursor position, reloads data, then restores state
+--- This is the primary method actions should call after mutations
 function Picker:refresh()
-  self:load()
+  local expanded_ids = self:_get_expanded_node_ids()
+  local cursor_id = self:_get_cursor_node_id()
+
+  self:load(function()
+    self:_restore_expanded_nodes(expanded_ids)
+    if cursor_id then
+      self:_set_cursor_to_node(cursor_id)
+    end
+    -- Re-render to reflect restored expanded state
+    if self.tree then
+      self.tree:render()
+    end
+  end)
 end
 
 --
@@ -226,8 +363,26 @@ end
 --
 
 --- Bind action keymaps from config
+---
+--- DESIGN DECISION: Refresh callback pattern
+---
+--- Actions that mutate data (create, rename, delete) receive a refresh_cb parameter.
+--- After successful mutation, the action calls refresh_cb() to trigger tree reload.
+---
+--- Why callback instead of return value:
+--- - Actions are async (API calls use callbacks)
+--- - Action decides when/if to refresh (e.g., skip refresh if user cancels)
+--- - Keeps picker generic - doesn't know which actions mutate data
+---
+--- Note: "select" action does NOT receive refresh_cb since it doesn't mutate data.
+---
 function Picker:_bind_keymaps()
   local opts = { noremap = true, nowait = true, buffer = self.bufnr }
+
+  -- Refresh callback for mutation actions
+  local refresh_cb = function()
+    self:refresh()
+  end
 
   for key, action_name in pairs(self.config.keymaps) do
     if action_name == "close" then
@@ -235,6 +390,7 @@ function Picker:_bind_keymaps()
       -- Skip for now, explorer will handle this
     elseif action_name == "select" then
       -- Special case: select handles tree operations (expand/collapse) or delegates to source
+      -- Note: select does NOT get refresh_cb - it doesn't mutate data
       vim.keymap.set("n", key, function()
         local node = self:get_node()
         if not node then
@@ -257,11 +413,10 @@ function Picker:_bind_keymaps()
         end
       end, opts)
     elseif self.source.actions[action_name] then
+      -- Mutation actions (create, rename, delete) receive refresh callback
       vim.keymap.set("n", key, function()
         local node = self:get_node()
-        -- TODO: Pass refresh callback to actions once we finalize the pattern
-        -- self.source.actions[action_name](node, function() self:load() end)
-        self.source.actions[action_name](node)
+        self.source.actions[action_name](node, refresh_cb)
       end, opts)
     end
   end

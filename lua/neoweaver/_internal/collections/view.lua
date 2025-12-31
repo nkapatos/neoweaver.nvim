@@ -307,6 +307,7 @@ M.source = {
   get_stats = get_stats,
   actions = {
     --- Open note (leaf nodes only - expand/collapse handled by picker)
+    --- Note: select does NOT receive refresh_cb - it doesn't mutate data
     ---@param node NuiTree.Node
     select = function(node)
       if node.type == "note" then
@@ -319,7 +320,8 @@ M.source = {
     --- Create new note or collection
     --- Trailing slash convention: "name" = note, "name/" = collection
     ---@param node NuiTree.Node
-    create = function(node)
+    ---@param refresh_cb function|nil Callback to refresh tree after mutation
+    create = function(node, refresh_cb)
       -- Get parent collection_id from node
       -- Works for both collection nodes (node itself) and note nodes (note's parent)
       local parent_id = node.collection_id
@@ -375,7 +377,9 @@ M.source = {
                 return
               end
               vim.notify("Created collection: " .. collection.displayName, vim.log.levels.INFO)
-              -- TODO: refresh_callback() when implemented
+              if refresh_cb then
+                refresh_cb()
+              end
             end)
           else
             -- Create note
@@ -389,7 +393,9 @@ M.source = {
                 return
               end
               vim.notify("Created note: " .. res.data.title, vim.log.levels.INFO)
-              -- TODO: refresh_callback() when implemented
+              if refresh_cb then
+                refresh_cb()
+              end
             end)
           end
         end,
@@ -406,7 +412,8 @@ M.source = {
     --- Rename collection or note
     --- System collections cannot be renamed
     ---@param node NuiTree.Node
-    rename = function(node)
+    ---@param refresh_cb function|nil Callback to refresh tree after mutation
+    rename = function(node, refresh_cb)
       -- Don't allow renaming system collections
       if node.type == "collection" and node.is_system then
         vim.notify("Cannot rename system collections", vim.log.levels.WARN)
@@ -455,7 +462,9 @@ M.source = {
                 return
               end
               vim.notify("Renamed collection to: " .. collection.displayName, vim.log.levels.INFO)
-              -- TODO: refresh_callback() when implemented
+              if refresh_cb then
+                refresh_cb()
+              end
             end)
           elseif node.type == "note" then
             -- Rename note: fetch first to get etag, then patch
@@ -474,7 +483,9 @@ M.source = {
                   return
                 end
                 vim.notify("Renamed note to: " .. patch_res.data.title, vim.log.levels.INFO)
-                -- TODO: refresh_callback() when implemented
+                if refresh_cb then
+                  refresh_cb()
+                end
               end)
             end)
           end
@@ -492,7 +503,8 @@ M.source = {
     --- Delete collection or note
     --- System collections cannot be deleted
     ---@param node NuiTree.Node
-    delete = function(node)
+    ---@param refresh_cb function|nil Callback to refresh tree after mutation
+    delete = function(node, refresh_cb)
       -- Don't allow deleting system collections
       if node.type == "collection" and node.is_system then
         vim.notify("Cannot delete system collections", vim.log.levels.WARN)
@@ -534,7 +546,9 @@ M.source = {
                 return
               end
               vim.notify("Deleted collection: " .. node.name, vim.log.levels.INFO)
-              -- TODO: refresh_callback() when implemented
+              if refresh_cb then
+                refresh_cb()
+              end
             end)
           elseif node.type == "note" then
             -- Delete note
@@ -544,7 +558,9 @@ M.source = {
                 return
               end
               vim.notify("Deleted note: " .. node.name, vim.log.levels.INFO)
-              -- TODO: refresh_callback() when implemented
+              if refresh_cb then
+                refresh_cb()
+              end
             end)
           end
         end,
