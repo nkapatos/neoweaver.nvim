@@ -53,6 +53,7 @@
 
 local NuiTree = require("nui.tree")
 local NuiLine = require("nui.line")
+local Input = require("nui.input")
 local explorer = require("neoweaver._internal.explorer")
 local collections = require("neoweaver._internal.collections")
 local api = require("neoweaver._internal.api")
@@ -315,11 +316,91 @@ M.source = {
       -- Other types: no-op (picker handles expand/collapse for nodes with children)
     end,
 
-    --- Create new collection under server or collection node
+    --- Create new note or collection
+    --- Trailing slash convention: "name" = note, "name/" = collection
     ---@param node NuiTree.Node
     create = function(node)
-      -- TODO: Implement - validate node type, prompt for name, call API
-      vim.notify("[collections/view] create action (stub)", vim.log.levels.INFO)
+      -- Get parent collection_id from node
+      -- Works for both collection nodes (node itself) and note nodes (note's parent)
+      local parent_id = node.collection_id
+
+      if not parent_id then
+        vim.notify("Cannot create here", vim.log.levels.WARN)
+        return
+      end
+
+      local input = Input({
+        relative = "cursor",
+        position = { row = 1, col = 0 },
+        size = { width = 40 },
+        border = {
+          style = "rounded",
+          text = {
+            top = " Create ",
+            top_align = "center",
+            bottom = " name │ name/ = collection ",
+            bottom_align = "left",
+          },
+        },
+        win_options = {
+          winhighlight = "Normal:Normal,FloatBorder:FloatBorder",
+        },
+      }, {
+        prompt = "> ",
+        on_close = function()
+          -- User cancelled, do nothing
+        end,
+        on_submit = function(value)
+          -- Trim whitespace
+          value = vim.trim(value)
+
+          if value == "" then
+            return
+          end
+
+          -- Check for trailing slash
+          local has_trailing_slash = value:match("/$")
+          local name = value:gsub("/$", "")
+
+          if name == "" then
+            vim.notify("Name cannot be empty", vim.log.levels.WARN)
+            return
+          end
+
+          if has_trailing_slash then
+            -- Create collection
+            collections.create_collection(name, parent_id, function(collection, err)
+              if err then
+                vim.notify("Failed to create collection: " .. (err.message or vim.inspect(err)), vim.log.levels.ERROR)
+                return
+              end
+              vim.notify("Created collection: " .. collection.displayName, vim.log.levels.INFO)
+              -- TODO: refresh_callback() when implemented
+            end)
+          else
+            -- Create note
+            local req = {
+              title = name,
+              collectionId = parent_id,
+            }
+            api.notes.create(req, function(res)
+              if res.error then
+                vim.notify("Failed to create note: " .. (res.error.message or vim.inspect(res.error)), vim.log.levels.ERROR)
+                return
+              end
+              vim.notify("Created note: " .. res.data.title, vim.log.levels.INFO)
+              -- TODO: refresh_callback() when implemented
+            end)
+          end
+        end,
+      })
+
+      input:mount()
+
+      -- Add Esc to close in normal mode
+      input:map("n", "<Esc>", function()
+        input:unmount()
+      end, { noremap = true })
     end,
 
     --- Rename collection (not allowed for system collections)
