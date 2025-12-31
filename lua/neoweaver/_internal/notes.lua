@@ -161,8 +161,10 @@ function M.list_notes()
   --]]
 end
 
---- Create a new note (server-first approach with auto-generated title)
-function M.create_note()
+--- Create a new note with server-generated title (NewNote endpoint)
+--- Server generates title as "Untitled N" where N is incremental
+--- Opens the note buffer immediately after creation
+function M.new_note()
   local now = vim.loop.now()
   if not allow_multiple_empty_notes and (now - last_create_time < DEBOUNCE_MS) then
     vim.notify("Please wait before creating another note", vim.log.levels.WARN)
@@ -210,6 +212,53 @@ function M.create_note()
     vim.b[bufnr].note_metadata = note.metadata or {}
 
     vim.notify("Note created: " .. note.title, vim.log.levels.INFO)
+  end)
+end
+
+--- Create a note with client-provided title (CreateNote endpoint)
+--- Opens the note buffer immediately after creation
+---@param title string The note title
+---@param collection_id number The collection ID to create the note in
+---@param callback? fun(note: table) Optional callback after note is created and buffer opened
+function M.create_note(title, collection_id, callback)
+  ---@type mind.v3.CreateNoteRequest
+  local req = {
+    title = title,
+    collectionId = collection_id,
+  }
+
+  api.notes.create(req, function(res)
+    if res.error then
+      vim.notify("Failed to create note: " .. res.error.message, vim.log.levels.ERROR)
+      return
+    end
+
+    local note = res.data
+    local note_id = tonumber(note.id)
+
+    local bufnr = buffer_manager.create({
+      type = "note",
+      id = note_id,
+      name = note.title,
+      filetype = "markdown",
+      modifiable = true,
+    })
+
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {})
+    vim.api.nvim_set_option_value("modified", false, { buf = bufnr })
+
+    vim.b[bufnr].note_id = note_id
+    vim.b[bufnr].note_title = note.title
+    vim.b[bufnr].note_etag = note.etag
+    vim.b[bufnr].note_collection_id = note.collectionId
+    vim.b[bufnr].note_type_id = note.noteTypeId
+    vim.b[bufnr].note_metadata = note.metadata or {}
+
+    vim.notify("Note created: " .. note.title, vim.log.levels.INFO)
+
+    if callback then
+      callback(note)
+    end
   end)
 end
 

@@ -151,7 +151,7 @@ function M.setup_keymaps()
   end
 
   if km_notes.new then
-    vim.keymap.set("n", km_notes.new, notes.create_note, { desc = "Create new note" })
+    vim.keymap.set("n", km_notes.new, notes.new_note, { desc = "Create new note" })
   end
 
   if km_notes.delete then

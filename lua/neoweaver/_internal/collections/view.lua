@@ -382,17 +382,10 @@ M.source = {
               end
             end)
           else
-            -- Create note
-            local req = {
-              title = name,
-              collectionId = parent_id,
-            }
-            api.notes.create(req, function(res)
-              if res.error then
-                vim.notify("Failed to create note: " .. (res.error.message or vim.inspect(res.error)), vim.log.levels.ERROR)
-                return
-              end
-              vim.notify("Created note: " .. res.data.title, vim.log.levels.INFO)
+            -- Create note via notes domain module
+            -- This opens the note buffer automatically and calls refresh_cb when done
+            local notes = require("neoweaver._internal.notes")
+            notes.create_note(name, parent_id, function(_note)
               if refresh_cb then
                 refresh_cb()
               end
