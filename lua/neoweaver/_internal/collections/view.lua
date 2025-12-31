@@ -489,11 +489,73 @@ M.source = {
       end, { noremap = true })
     end,
 
-    --- Delete collection (not allowed for system collections)
+    --- Delete collection or note
+    --- System collections cannot be deleted
     ---@param node NuiTree.Node
     delete = function(node)
-      -- TODO: Implement - validate not system, confirm, call API
-      vim.notify("[collections/view] delete action (stub)", vim.log.levels.INFO)
+      -- Don't allow deleting system collections
+      if node.type == "collection" and node.is_system then
+        vim.notify("Cannot delete system collections", vim.log.levels.WARN)
+        return
+      end
+
+      local entity_type = node.type == "collection" and "collection" or "note"
+      local confirm_prompt = string.format("Delete %s '%s'? (y/N): ", entity_type, node.name)
+
+      local input = Input({
+        relative = "cursor",
+        position = { row = 1, col = 0 },
+        size = { width = math.max(40, #confirm_prompt + 6) },
+        border = {
+          style = "rounded",
+          text = {
+            top = " Delete ",
+            top_align = "center",
+          },
+        },
+        win_options = {
+          winhighlight = "Normal:Normal,FloatBorder:WarningMsg",
+        },
+      }, {
+        prompt = confirm_prompt,
+        on_close = function()
+          -- User cancelled, do nothing
+        end,
+        on_submit = function(value)
+          if value ~= "y" and value ~= "Y" then
+            return
+          end
+
+          if node.type == "collection" then
+            -- Delete collection
+            collections.delete_collection(node.collection_id, function(success, err)
+              if err then
+                vim.notify("Failed to delete collection: " .. (err.message or vim.inspect(err)), vim.log.levels.ERROR)
+                return
+              end
+              vim.notify("Deleted collection: " .. node.name, vim.log.levels.INFO)
+              -- TODO: refresh_callback() when implemented
+            end)
+          elseif node.type == "note" then
+            -- Delete note
+            api.notes.delete({ id = node.note_id }, function(res)
+              if res.error then
+                vim.notify("Failed to delete note: " .. (res.error.message or vim.inspect(res.error)), vim.log.levels.ERROR)
+                return
+              end
+              vim.notify("Deleted note: " .. node.name, vim.log.levels.INFO)
+              -- TODO: refresh_callback() when implemented
+            end)
+          end
+        end,
+      })
+
+      input:mount()
+
+      -- Add Esc to close in normal mode
+      input:map("n", "<Esc>", function()
+        input:unmount()
+      end, { noremap = true })
     end,
   },
 }
