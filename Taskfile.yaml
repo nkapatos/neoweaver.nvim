@@ -63,14 +63,22 @@ tasks:
 
   dev:setup:
     desc: Setup development environment by downloading all dependencies
+    # Add support to check if dir exists before cloning. Does tasks support that?
     cmds:
       - task: deps:nui
+      - task: deps:plenary
 
   deps:nui:
     desc: Download nui.nvim dependency in the deps directory
     dir: deps
     cmds:
       - git clone --filter=blob:none --depth=1 https://github.com/MunifTanjim/nui.nvim.git
+
+  deps:plenary:
+    desc: Download plenary.nvim dependency in the deps directory
+    dir: deps
+    cmds:
+      - git clone --filter=blob:none --depth=1 https://github.com/nvim-lua/plenary.nvim.git
 
   deps:mini:
     desc: Download mini.test and mini.doc dependencies in the deps directory
