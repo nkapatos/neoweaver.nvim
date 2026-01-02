@@ -17,8 +17,8 @@ local M = {}
 ---@field config PickerConfig
 ---@field tree NuiTree|nil
 ---@field bufnr number|nil
----@field poll_timer uv_timer_t|nil Timer handle for polling
 ---@field is_visible boolean Visibility state
+---@field _event_unsub fun()|nil Unsubscribe function for SSE events
 local Picker = {}
 Picker.__index = Picker
 
@@ -31,8 +31,8 @@ function M.new(source, config)
   self.config = config
   self.tree = nil
   self.bufnr = nil
-  self.poll_timer = nil
   self.is_visible = false
+  self._event_unsub = nil
   return self
 end
 
@@ -56,55 +56,38 @@ function Picker:onMount(bufnr)
   self:_bind_navigation()
 end
 
---- Load data and start polling (future: SSE will replace polling)
+--- Load data and subscribe to SSE events for live updates
 function Picker:onShow()
   self.is_visible = true
   self:refresh()
-  -- TODO: Enable polling when ready
-  -- self:_start_polling()
+
+  -- Subscribe to SSE events if ViewSource declares event_types
+  if self.source.event_types and #self.source.event_types > 0 then
+    local api = require("neoweaver._internal.api")
+    self._event_unsub = api.events.on(self.source.event_types, function(_event)
+      if self.is_visible then
+        self:refresh()
+      end
+    end)
+  end
 end
 
---- Stop polling, preserve tree state
+--- Pause updates, preserve tree state
 function Picker:onHide()
   self.is_visible = false
-  self:_stop_polling()
 end
 
 --- Full cleanup
 function Picker:onUnmount()
-  self:_stop_polling()
+  -- Unsubscribe from SSE events to prevent memory leaks
+  if self._event_unsub then
+    self._event_unsub()
+    self._event_unsub = nil
+  end
+
   self.tree = nil
   self.bufnr = nil
   self.is_visible = false
-end
-
---
--- Polling (TODO: Replace with SSE for push-based updates)
---
-
-function Picker:_start_polling()
-  local interval = self.source.poll_interval
-  if not interval then
-    return
-  end
-
-  self:_stop_polling()
-
-  self.poll_timer = vim.loop.new_timer()
-  self.poll_timer:start(interval, interval, vim.schedule_wrap(function()
-    if self.is_visible then
-      self:load()
-    end
-  end))
-end
-
-function Picker:_stop_polling()
-  if not self.poll_timer then
-    return
-  end
-  self.poll_timer:stop()
-  self.poll_timer:close()
-  self.poll_timer = nil
 end
 
 --
