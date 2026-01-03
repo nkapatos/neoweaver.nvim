@@ -55,6 +55,8 @@
 ---@field prepare_node fun(node: NuiTree.Node, parent?: NuiTree.Node): NuiLine[] Renders node for display using domain properties
 ---@field actions ViewActions Table of action handlers that receive (node, refresh_callback)
 ---@field get_stats fun(): ViewStats Returns stats for statusline
+---@field event_types? string[] Optional SSE event types to subscribe to for live updates
+---@field idle_timeout? number Optional idle timeout in ms before auto-unmount (default 300000 / 5 min)
 ---@field poll_interval? number Optional polling interval in ms (domain-specific, nil = no polling)
 
 ---@class ViewActions

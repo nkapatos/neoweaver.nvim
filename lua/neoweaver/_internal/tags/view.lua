@@ -1,51 +1,53 @@
 ---
---- tags/view.lua - ViewSource implementation for tags domain (MOCK)
+--- tags/view.lua - ViewSource implementation for tags domain
 ---
---- PURPOSE:
 --- Implements the ViewSource interface for the tags domain.
---- Used to validate the picker/view architecture with a second domain.
----
---- THIS IS A MOCK IMPLEMENTATION:
---- - Uses hardcoded mock data (id, text only)
---- - No backend integration
---- - For testing the picker wiring and evaluating the design
----
---- IMPLEMENTS ViewSource:
---- - name: "tags"
---- - load_data: Returns mock tag nodes
---- - prepare_node: Simple text rendering
---- - actions: Stub handlers
---- - get_stats: Returns tag count
+--- Tags are read-only (list and select only).
 ---
 
 local NuiTree = require("nui.tree")
 local NuiLine = require("nui.line")
-local explorer = require("neoweaver._internal.explorer")
+local manager = require("neoweaver._internal.picker.manager")
+local tags = require("neoweaver._internal.tags")
+local api = require("neoweaver._internal.api")
 
 local M = {}
 
---- Mock tag data
-local mock_tags = {
-  { id = "tag-1", text = "work" },
-  { id = "tag-2", text = "personal" },
-  { id = "tag-3", text = "ideas" },
-  { id = "tag-4", text = "todo" },
-  { id = "tag-5", text = "archive" },
-}
+--- Cached stats from last load
+local cached_stats = { items = { { label = "Tags", count = 0 } } }
 
---- Build tree nodes from mock tag data
+--- Returns empty stats structure for error/empty cases
+---@return ViewStats
+local function empty_stats()
+  return { items = { { label = "Tags", count = 0 } } }
+end
+
+--- Fetch tags from API and build NuiTree.Node[]
 ---@param callback fun(nodes: NuiTree.Node[], stats: ViewStats)
 local function load_data(callback)
-  vim.notify("[tags/view] load_data called (mock)", vim.log.levels.INFO)
-  local nodes = {}
-  for _, tag in ipairs(mock_tags) do
-    table.insert(nodes, NuiTree.Node({
-      id = tag.id,
-      text = tag.text,
-      type = "tag",
-    }))
-  end
-  callback(nodes, { items = { { label = "Tags", count = #mock_tags } } })
+  tags.list_tags({}, function(tags_list, err)
+    if err then
+      vim.notify("Failed to load tags: " .. (err.message or vim.inspect(err)), vim.log.levels.ERROR)
+      callback({}, empty_stats())
+      return
+    end
+
+    local nodes = {}
+
+    for _, tag in ipairs(tags_list) do
+      table.insert(nodes, NuiTree.Node({
+        id = "tag:" .. tag.id,
+        type = "tag",
+        name = tag.displayName,
+        tag_id = tag.id,
+        icon = "",
+        highlight = "Special",
+      }))
+    end
+
+    cached_stats = { items = { { label = "Tags", count = #tags_list } } }
+    callback(nodes, cached_stats)
+  end)
 end
 
 --- Render a tag node for display
@@ -54,52 +56,48 @@ end
 ---@return NuiLine[]
 local function prepare_node(node, parent)
   local line = NuiLine()
-  line:append(string.rep("  ", node:get_depth() - 1))
-  line:append("# ", "Special")
-  line:append(node.text or "???")
+
+  -- Indentation
+  local indent = string.rep("  ", node:get_depth() - 1)
+  line:append(indent)
+
+  -- No expand/collapse for flat tag list
+  line:append("  ")
+
+  -- Icon
+  if node.icon then
+    line:append(node.icon .. " ", node.highlight or "Normal")
+  end
+
+  -- Name
+  line:append(node.name, node.highlight or "Normal")
+
   return { line }
 end
 
 --- Get stats for statusline
 ---@return ViewStats
 local function get_stats()
-  return { items = { { label = "Tags", count = #mock_tags } } }
+  return cached_stats
 end
 
 ---@type ViewSource
 M.source = {
   name = "tags",
-  poll_interval = 10000, -- 10 seconds (mock, different to verify independence)
+  event_types = { api.events.types.TAG },
   load_data = load_data,
   prepare_node = prepare_node,
   get_stats = get_stats,
   actions = {
-    --- Select tag (filter by tag)
+    --- Select tag
     ---@param node NuiTree.Node
     select = function(node)
-      vim.notify("[tags/view] Selected tag: " .. (node.text or "???"), vim.log.levels.INFO)
-    end,
-
-    --- Create new tag (stub)
-    create = function()
-      vim.notify("[tags/view] Create tag: not implemented (mock)", vim.log.levels.WARN)
-    end,
-
-    --- Rename tag (stub)
-    ---@param node NuiTree.Node
-    rename = function(node)
-      vim.notify("[tags/view] Rename tag: not implemented (mock)", vim.log.levels.WARN)
-    end,
-
-    --- Delete tag (stub)
-    ---@param node NuiTree.Node
-    delete = function(node)
-      vim.notify("[tags/view] Delete tag: not implemented (mock)", vim.log.levels.WARN)
+      vim.notify("Selected tag: " .. (node.name or "???") .. " (id: " .. (node.tag_id or "?") .. ")", vim.log.levels.INFO)
     end,
   },
 }
 
--- Self-register with explorer
-explorer.register_view("tags", M.source)
+-- Self-register with picker manager
+manager.register_source("tags", M.source)
 
 return M

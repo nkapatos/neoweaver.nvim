@@ -1,33 +1,25 @@
 ---
 --- explorer/init.lua - Sidebar host for picker
 ---
---- Manages window lifecycle (show/hide/toggle) and picker lifecycle hooks.
---- Views register via register_view(name, source). Idle timeout unmounts after inactivity.
+--- Manages window lifecycle (show/hide/toggle).
+--- Uses picker/manager to get picker instances.
+--- Binds host-specific keymaps (q, 1, 2) to picker buffers.
+--- Swaps displayed buffer on view switch.
 ---
 
 local Split = require("nui.split")
-local picker_mod = require("neoweaver._internal.picker")
-local configs = require("neoweaver._internal.picker.configs")
+local manager = require("neoweaver._internal.picker.manager")
 
 local M = {}
 
--- TODO: Make DEFAULT_VIEW configurable via user config and/or persist last used view
 local DEFAULT_VIEW = "collections"
-
---- Registered view sources
----@type table<string, ViewSource>
-local views = {}
 
 --- Current state
 local state = {
-  ---@type Picker|nil
-  picker_instance = nil,
   ---@type string|nil
   current_view = nil,
   ---@type NuiSplit|nil
   split = nil,
-  ---@type uv_timer_t|nil
-  idle_timer = nil,
 }
 
 --- Configuration
@@ -36,45 +28,7 @@ local config = {
     position = "left",
     size = 30,
   },
-  idle_timeout = 10000, -- 10 seconds for testing (TODO: restore to 60000 for production)
 }
-
---- Register a view source
---- Called by domain modules to make their view available
----@param name string View name (e.g., "collections", "tags")
----@param source ViewSource The view source implementation
-function M.register_view(name, source)
-  views[name] = source
-end
-
---
--- Idle Timer Management
---
-
---- Start idle timer for cleanup after close
-function M._start_idle_timer()
-  M._cancel_idle_timer()
-
-  local timer = vim.loop.new_timer()
-  state.idle_timer = timer
-
-  timer:start(config.idle_timeout, 0, vim.schedule_wrap(function()
-    timer:stop()
-    timer:close()
-    state.idle_timer = nil
-    vim.notify("[explorer] idle timeout - unmounting", vim.log.levels.INFO)
-    M.unmount()
-  end))
-end
-
---- Cancel pending idle timer
-function M._cancel_idle_timer()
-  if state.idle_timer then
-    state.idle_timer:stop()
-    state.idle_timer:close()
-    state.idle_timer = nil
-  end
-end
 
 --
 -- Window Management
@@ -87,11 +41,6 @@ local function create_split()
     relative = "editor",
     position = config.window.position,
     size = config.window.size,
-    buf_options = {
-      buftype = "nofile",
-      swapfile = false,
-      filetype = "neoweaver_explorer",
-    },
     win_options = {
       number = false,
       relativenumber = false,
@@ -102,44 +51,40 @@ local function create_split()
   })
 end
 
---- Setup keymaps on the split buffer
----@param split NuiSplit
-local function setup_keymaps(split)
-  -- Close on q
-  split:map("n", "q", function()
+--- Setup host-specific keymaps on picker's buffer
+---@param picker Picker
+local function setup_host_keymaps(picker)
+  if picker._host_keymaps_bound then
+    return
+  end
+
+  local opts = { noremap = true, buffer = picker.bufnr }
+
+  -- Close explorer
+  vim.keymap.set("n", "q", function()
     M.close()
-  end, { noremap = true })
+  end, opts)
 
-  -- Switch views with 1/2 keys (for testing polling lifecycle)
-  -- TODO: Remove or replace with proper view switcher UI
-  split:map("n", "1", function()
+  -- Switch views
+  vim.keymap.set("n", "1", function()
     M.switch_view("collections")
-  end, { noremap = true })
+  end, opts)
 
-  split:map("n", "2", function()
+  vim.keymap.set("n", "2", function()
     M.switch_view("tags")
-  end, { noremap = true })
-end
+  end, opts)
 
---- Setup picker with view source
----@param source ViewSource
-local function setup_picker(source)
-  state.picker_instance = picker_mod.new(source, configs.explorer)
+  picker._host_keymaps_bound = true
 end
 
 --
 -- Public API
 --
 
---- Explicitly unmount the explorer (destroys buffer + window, full cleanup)
+--- Explicitly unmount the explorer (destroys window, force unmounts all pickers)
 --- Use this when you need to fully reset state or free resources
 function M.unmount()
-  M._cancel_idle_timer()
-
-  if state.picker_instance then
-    state.picker_instance:onUnmount()
-    state.picker_instance = nil
-  end
+  manager.unmount_all()
 
   if state.split then
     state.split:unmount()
@@ -150,57 +95,62 @@ function M.unmount()
 end
 
 --- Open the explorer with a specific view
---- Uses show() internally - mounts on first call, just shows window on subsequent calls
 ---@param view_name? string Name of the view to display (defaults to DEFAULT_VIEW)
 function M.open(view_name)
   view_name = view_name or state.current_view or DEFAULT_VIEW
 
-  local source = views[view_name]
-  if not source then
+  -- Get or create picker (validates source exists)
+  local picker = manager.get_or_create_picker(view_name)
+  if not picker then
     vim.notify("Unknown view: " .. view_name, vim.log.levels.ERROR)
     return
   end
 
-  -- Cancel idle timer if pending
-  M._cancel_idle_timer()
-
   -- Create split if not exists
   if not state.split then
     state.split = create_split()
-    setup_keymaps(state.split)
   end
 
   -- Show the split (mounts internally if not mounted)
   state.split:show()
 
-  -- Setup picker if view changed or first time
-  if state.current_view ~= view_name or not state.picker_instance then
-    -- Hide old picker if exists (stops its polling)
-    if state.picker_instance then
-      state.picker_instance:onHide()
-    end
-
-    setup_picker(source)
-    state.picker_instance:onMount(state.split.bufnr)
-    state.current_view = view_name
+  -- Verify window was created successfully
+  if not state.split.winid or not vim.api.nvim_win_is_valid(state.split.winid) then
+    vim.notify("Failed to open explorer window", vim.log.levels.ERROR)
+    return
   end
 
-  -- Trigger show lifecycle (loads data, starts polling)
-  state.picker_instance:onShow()
+  -- Setup host keymaps on picker's buffer
+  setup_host_keymaps(picker)
+
+  -- Hide current picker if switching views
+  if state.current_view and state.current_view ~= view_name then
+    local current_picker = manager.get_or_create_picker(state.current_view)
+    if current_picker then
+      current_picker:onHide()
+    end
+  end
+
+  -- Swap buffer displayed in split window
+  vim.api.nvim_win_set_buf(state.split.winid, picker.bufnr)
+  state.current_view = view_name
+
+  -- Trigger show lifecycle (loads data, subscribes SSE)
+  picker:onShow()
 end
 
---- Close the explorer (hides window, preserves buffer + tree state)
+--- Close the explorer (hides window, picker starts idle timer)
 function M.close()
-  if state.picker_instance then
-    state.picker_instance:onHide() -- stops polling
+  if state.current_view then
+    local picker = manager.get_or_create_picker(state.current_view)
+    if picker then
+      picker:onHide()
+    end
   end
 
   if state.split then
     state.split:hide()
   end
-
-  -- Start idle timer for cleanup
-  M._start_idle_timer()
 end
 
 --- Toggle explorer visibility
@@ -217,41 +167,32 @@ end
 --- Switch to a different view
 ---@param view_name string
 function M.switch_view(view_name)
-  local source = views[view_name]
-  if not source then
-    vim.notify("Unknown view: " .. view_name, vim.log.levels.ERROR)
+  -- Skip if already on this view and explorer is open
+  if state.current_view == view_name and M.is_open() then
     return
   end
 
-  -- If not open, just open with the new view
-  if not state.split or not state.split.winid then
-    M.open(view_name)
-    return
-  end
-
-  -- Hide old picker (stops polling)
-  if state.picker_instance then
-    state.picker_instance:onHide()
-  end
-
-  -- Setup and show new picker
-  setup_picker(source)
-  state.picker_instance:onMount(state.split.bufnr)
-  state.picker_instance:onShow()
-  state.current_view = view_name
+  -- Delegate to open() which handles all view switching logic
+  M.open(view_name)
 end
 
 --- Refresh the current view (reload data from source)
 function M.refresh()
-  if state.picker_instance then
-    state.picker_instance:refresh()
+  if state.current_view then
+    local picker = manager.get_or_create_picker(state.current_view)
+    if picker then
+      picker:refresh()
+    end
   end
 end
 
 --- Get the current picker instance (for external access)
 ---@return Picker|nil
 function M.get_picker()
-  return state.picker_instance
+  if state.current_view then
+    return manager.get_or_create_picker(state.current_view)
+  end
+  return nil
 end
 
 --- Check if explorer is visible (window is open)
@@ -262,7 +203,7 @@ function M.is_open()
     and vim.api.nvim_win_is_valid(state.split.winid)
 end
 
---- Check if explorer is mounted (buffer exists, may or may not be visible)
+--- Check if explorer is mounted (split exists, may or may not be visible)
 ---@return boolean
 function M.is_mounted()
   return state.split ~= nil and state.split._.mounted

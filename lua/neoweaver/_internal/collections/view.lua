@@ -9,7 +9,7 @@
 local NuiTree = require("nui.tree")
 local NuiLine = require("nui.line")
 local Input = require("nui.input")
-local explorer = require("neoweaver._internal.explorer")
+local manager = require("neoweaver._internal.picker.manager")
 local collections = require("neoweaver._internal.collections")
 local api = require("neoweaver._internal.api")
 
@@ -496,7 +496,7 @@ M.source = {
   },
 }
 
--- Self-register with explorer
-explorer.register_view("collections", M.source)
+-- Self-register with picker manager
+manager.register_source("collections", M.source)
 
 return M
