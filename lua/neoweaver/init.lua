@@ -12,6 +12,12 @@
 ---@module neoweaver
 local M = {}
 
+-- Explorer and view modules
+-- Views self-register with explorer on require
+local explorer = require("neoweaver._internal.explorer")
+require("neoweaver._internal.collections.view")
+require("neoweaver._internal.tags.view")
+
 --- Setup the neoweaver plugin
 ---
 --- Configures the API client, note handlers, and optional keymaps.
@@ -120,10 +126,7 @@ function M.setup_keymaps()
   end
 
   -- Standard notes keymaps
-  if km_notes.list then
-    vim.keymap.set("n", km_notes.list, notes.list_notes, { desc = "List notes" })
-  end
-
+  -- Note: list_notes removed - use explorer with collections view instead
   if km_notes.find then
     vim.keymap.set("n", km_notes.find, notes.find_notes, { desc = "Find notes by title" })
   end
@@ -145,7 +148,7 @@ function M.setup_keymaps()
   end
 
   if km_notes.new then
-    vim.keymap.set("n", km_notes.new, notes.create_note, { desc = "Create new note" })
+    vim.keymap.set("n", km_notes.new, notes.new_note, { desc = "Create new note" })
   end
 
   if km_notes.delete then
@@ -193,6 +196,6 @@ function M.get_config()
 end
 
 --- Explorer module for browsing collections and notes
-M.explorer = require("neoweaver._internal.explorer")
+M.explorer = explorer
 
 return M

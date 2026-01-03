@@ -220,7 +220,7 @@ local function resolve_hunk(bufnr, strategy)
           end
           vim.api.nvim_buf_set_lines(bufnr, from - 1, from - 1, false, new_lines)
         end
-      elseif strategy == "local" then
+      elseif strategy == "local" then -- luacheck: ignore 542
         -- Keep local version (no buffer changes needed, just mark resolved)
         -- Local version is already in buffer
         -- No additional buffer edits required

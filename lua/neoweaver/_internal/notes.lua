@@ -1,14 +1,9 @@
 ---
 --- notes.lua - Note management for Neoweaver (v3)
 --- Handles note listing, opening, editing, and saving
----
---- Reference: clients/mw/notes.lua (v1 implementation)
----
 local api = require("neoweaver._internal.api")
 local buffer_manager = require("neoweaver._internal.buffer.manager")
 local diff = require("neoweaver._internal.diff")
-local picker = require("neoweaver._internal.ui.picker")
-local config_module = require("neoweaver._internal.config")
 
 -- Debounce state for create_note
 local last_create_time = 0
@@ -41,6 +36,40 @@ local M = {}
 
 -- Forward declarations
 local handle_conflict
+
+--- Open a note in a buffer (internal helper)
+--- Creates buffer via buffer_manager and sets all note-related buffer variables
+---@param note table Note data from API response
+---@param opts? { body?: string, modified?: boolean } Optional overrides
+---@return integer bufnr The buffer number
+local function open_note_buffer(note, opts)
+  opts = opts or {}
+  local note_id = tonumber(note.id)
+
+  local bufnr = buffer_manager.create({
+    type = "note",
+    id = note_id,
+    name = note.title or "Untitled",
+    filetype = "markdown",
+    modifiable = true,
+  })
+
+  -- Set buffer content
+  local body = opts.body or note.body or ""
+  local lines = vim.split(body, "\n")
+  vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
+  vim.api.nvim_set_option_value("modified", opts.modified or false, { buf = bufnr })
+
+  -- Set buffer-local note metadata
+  vim.b[bufnr].note_id = note_id
+  vim.b[bufnr].note_title = note.title
+  vim.b[bufnr].note_etag = note.etag
+  vim.b[bufnr].note_collection_id = note.collectionId
+  vim.b[bufnr].note_type_id = note.noteTypeId
+  vim.b[bufnr].note_metadata = note.metadata or {}
+
+  return bufnr
+end
 
 --- Handle ETag conflict by showing diff and resolving
 ---@param bufnr integer
@@ -113,48 +142,10 @@ handle_conflict = function(bufnr, note_id)
   end)
 end
 
---- List all notes using nui picker
-function M.list_notes()
-  ---@type mind.v3.ListNotesRequest
-  local req = {
-    pageSize = 100,
-    pageToken = "",
-  }
-
-  api.notes.list(req, function(res)
-    if res.error then
-      vim.notify("Error listing notes: " .. vim.inspect(res.error), vim.log.levels.ERROR)
-      return
-    end
-
-    ---@type mind.v3.ListNotesResponse
-    local list_res = res.data
-    local notes = list_res.notes or {}
-
-    if #notes == 0 then
-      vim.notify("No notes found!", vim.log.levels.INFO)
-      return
-    end
-
-    local cfg = config_module.get().picker or {}
-
-    picker.pick(notes, {
-      prompt = "Select a note",
-      format_item = function(note, _idx)
-        return string.format("[%d] %s", note.id, note.title)
-      end,
-      on_submit = function(note, _idx)
-        M.open_note(tonumber(note.id))
-      end,
-      size = cfg.size,
-      position = cfg.position,
-      border = cfg.border,
-    })
-  end)
-end
-
---- Create a new note (server-first approach with auto-generated title)
-function M.create_note()
+--- Create a new note with server-generated title (NewNote endpoint)
+--- Server generates title as "Untitled N" where N is incremental
+--- Opens the note buffer immediately after creation
+function M.new_note()
   local now = vim.loop.now()
   if not allow_multiple_empty_notes and (now - last_create_time < DEBOUNCE_MS) then
     vim.notify("Please wait before creating another note", vim.log.levels.WARN)
@@ -181,27 +172,36 @@ function M.create_note()
     end
 
     local note = res.data
-    local note_id = tonumber(note.id)
-
-    local bufnr = buffer_manager.create({
-      type = "note",
-      id = note_id,
-      name = note.title,
-      filetype = "markdown",
-      modifiable = true,
-    })
-
-    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {})
-    vim.api.nvim_set_option_value("modified", allow_multiple_empty_notes, { buf = bufnr })
-
-    vim.b[bufnr].note_id = note_id
-    vim.b[bufnr].note_title = note.title
-    vim.b[bufnr].note_etag = note.etag
-    vim.b[bufnr].note_collection_id = note.collectionId
-    vim.b[bufnr].note_type_id = note.noteTypeId
-    vim.b[bufnr].note_metadata = note.metadata or {}
-
+    open_note_buffer(note, { body = "", modified = allow_multiple_empty_notes })
     vim.notify("Note created: " .. note.title, vim.log.levels.INFO)
+  end)
+end
+
+--- Create a note with client-provided title (CreateNote endpoint)
+--- Opens the note buffer immediately after creation
+---@param title string The note title
+---@param collection_id number The collection ID to create the note in
+---@param callback? fun(note: table) Optional callback after note is created and buffer opened
+function M.create_note(title, collection_id, callback)
+  ---@type mind.v3.CreateNoteRequest
+  local req = {
+    title = title,
+    collectionId = collection_id,
+  }
+
+  api.notes.create(req, function(res)
+    if res.error then
+      vim.notify("Failed to create note: " .. res.error.message, vim.log.levels.ERROR)
+      return
+    end
+
+    local note = res.data
+    open_note_buffer(note, { body = "" })
+    vim.notify("Note created: " .. note.title, vim.log.levels.INFO)
+
+    if callback then
+      callback(note)
+    end
   end)
 end
 
@@ -228,26 +228,7 @@ function M.open_note(note_id)
       return
     end
 
-    local note = res.data
-
-    local bufnr = buffer_manager.create({
-      type = "note",
-      id = note_id,
-      name = note.title or "Untitled",
-      filetype = "markdown",
-      modifiable = true,
-    })
-
-    local lines = vim.split(note.body or "", "\n")
-    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
-    vim.api.nvim_set_option_value("modified", false, { buf = bufnr })
-
-    vim.b[bufnr].note_id = note_id
-    vim.b[bufnr].note_title = note.title
-    vim.b[bufnr].note_etag = note.etag
-    vim.b[bufnr].note_collection_id = note.collectionId
-    vim.b[bufnr].note_type_id = note.noteTypeId
-    vim.b[bufnr].note_metadata = note.metadata or {}
+    open_note_buffer(res.data)
   end)
 end
 
@@ -375,57 +356,9 @@ function M.delete_note(note_id)
 end
 
 --- Find notes by title using interactive search picker
+--- See issue #24 for reimplementation with new picker architecture
 function M.find_notes()
-  local search_picker = require("neoweaver._internal.ui.search_picker")
-
-  --- Search function - calls FindNotes API
-  ---@param query string Search query
-  ---@param page_token string|nil Pagination token
-  ---@param callback function Callback(items, error, has_more, next_token)
-  local function search_fn(query, page_token, callback)
-    ---@type mind.v3.FindNotesRequest
-    local req = {
-      title = query,
-      pageSize = 100,
-      pageToken = page_token,
-      fieldMask = "id,title,collectionId,collectionPath",
-    }
-
-    api.notes.find(req, function(res)
-      if res.error then
-        callback(nil, res.error.message, false, nil)
-        return
-      end
-
-      ---@type mind.v3.FindNotesResponse
-      local find_res = res.data
-      local notes = find_res.notes or {}
-      local has_more = find_res.nextPageToken ~= nil and find_res.nextPageToken ~= ""
-
-      callback(notes, nil, has_more, find_res.nextPageToken)
-    end)
-  end
-
-  -- Show search picker
-  search_picker.show({
-    prompt = "Find notes:",
-    min_query_length = 3,
-    debounce_ms = 300,
-    empty_message = "No notes found",
-    search_fn = search_fn,
-    format_item = function(note, _idx)
-      -- Format: "Note Title          collection-path"
-      local title = note.title or "Untitled"
-      local path = note.collectionPath or ""
-      return string.format("%-40s %s", title, path)
-    end,
-    on_select = function(note, _idx)
-      M.open_note(tonumber(note.id))
-    end,
-    on_close = function()
-      -- Optional: handle picker close
-    end,
-  })
+  vim.notify("find_notes() disabled - pending picker refactor (see #24)", vim.log.levels.WARN)
 end
 
 function M.setup(opts)
