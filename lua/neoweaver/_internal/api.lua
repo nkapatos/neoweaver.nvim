@@ -407,6 +407,23 @@ M.collections = {
   end,
 }
 
+---@class TagsMethods Tags service methods
+---@field list fun(req: mind.v3.ListTagsRequest, cb: fun(res: ApiResponse)) List tags
+
+-- Tags Service
+---@type TagsMethods
+M.tags = {
+  -- POST /mind.v3.TagsService/ListTags
+  -- Request: mind.v3.ListTagsRequest
+  -- Response: mind.v3.ListTagsResponse
+  list = function(req, cb)
+    request("GET", "/mind.v3.TagsService/ListTags", {
+      body = vim.json.encode(req or {}),
+      headers = { ["Content-Type"] = "application/json" },
+    }, cb)
+  end,
+}
+
 function M.set_current_server(name)
   if not name or name == "" then
     error("MwServerUse: server name is required")
@@ -446,6 +463,7 @@ M.events = {}
 M.events.types = {
   NOTE = "note",
   COLLECTION = "collection",
+  TAG = "tag",
   SYSTEM = "system",
 }
 
