@@ -30,24 +30,30 @@ local config = {
   },
 }
 
---
--- Window Management
---
+local WIN_OPTIONS = {
+  number = false,
+  relativenumber = false,
+  cursorline = true,
+  signcolumn = "no",
+  wrap = false,
+}
 
---- Create the sidebar split (does not mount)
+--- Apply window options to the split window
+local function apply_win_options()
+  if state.split and state.split.winid and vim.api.nvim_win_is_valid(state.split.winid) then
+    for opt, val in pairs(WIN_OPTIONS) do
+      vim.wo[state.split.winid][opt] = val
+    end
+  end
+end
+
 ---@return NuiSplit
 local function create_split()
   return Split({
     relative = "editor",
     position = config.window.position,
     size = config.window.size,
-    win_options = {
-      number = false,
-      relativenumber = false,
-      cursorline = true,
-      signcolumn = "no",
-      wrap = false,
-    },
+    win_options = WIN_OPTIONS,
   })
 end
 
@@ -131,8 +137,9 @@ function M.open(view_name)
     end
   end
 
-  -- Swap buffer displayed in split window
+  -- Swap buffer displayed in split window and re-apply window options
   vim.api.nvim_win_set_buf(state.split.winid, picker.bufnr)
+  apply_win_options()
   state.current_view = view_name
 
   -- Trigger show lifecycle (loads data, subscribes SSE)
