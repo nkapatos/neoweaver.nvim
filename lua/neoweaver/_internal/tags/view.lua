@@ -24,14 +24,17 @@ local function load_data(callback)
 
     local nodes = {}
     for _, tag in ipairs(tags_list) do
-      table.insert(nodes, NuiTree.Node({
-        id = "tag:" .. tag.id,
-        type = "tag",
-        name = tag.displayName,
-        tag_id = tag.id,
-        icon = "",
-        highlight = "Special",
-      }))
+      table.insert(
+        nodes,
+        NuiTree.Node({
+          id = "tag:" .. tag.id,
+          type = "tag",
+          name = tag.displayName,
+          tag_id = tag.id,
+          icon = "",
+          highlight = "Special",
+        })
+      )
     end
 
     cached_stats = { items = { { label = "Tags", count = #tags_list } } }
@@ -39,7 +42,7 @@ local function load_data(callback)
   end)
 end
 
-local function prepare_node(node, parent)
+local function prepare_node(node, _parent)
   local line = NuiLine()
 
   local indent = string.rep("  ", node:get_depth() - 1)
@@ -68,7 +71,8 @@ M.source = {
   get_stats = get_stats,
   actions = {
     select = function(node)
-      vim.notify("Selected tag: " .. (node.name or "???") .. " (id: " .. (node.tag_id or "?") .. ")", vim.log.levels.INFO)
+      local msg = ("Selected tag: %s (id: %s)"):format(node.name or "???", node.tag_id or "?")
+      vim.notify(msg, vim.log.levels.INFO)
     end,
   },
 }

@@ -440,8 +440,7 @@ function M.handle_delete(node, refresh_callback)
   end)
 end
 
-function M.setup(opts)
-  opts = opts or {}
+function M.setup(_opts)
   -- Future: Configuration options for collections
 end
 

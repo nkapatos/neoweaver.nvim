@@ -126,10 +126,7 @@ function M.setup_keymaps()
   end
 
   -- Standard notes keymaps
-  if km_notes.list then
-    vim.keymap.set("n", km_notes.list, notes.list_notes, { desc = "List notes" })
-  end
-
+  -- Note: list_notes removed - use explorer with collections view instead
   if km_notes.find then
     vim.keymap.set("n", km_notes.find, notes.find_notes, { desc = "Find notes by title" })
   end

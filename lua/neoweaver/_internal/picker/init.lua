@@ -49,9 +49,13 @@ function Picker:_start_idle_timer()
   local timer = vim.loop.new_timer()
   self._idle_timer = timer
 
-  timer:start(timeout, 0, vim.schedule_wrap(function()
-    self:onUnmount()
-  end))
+  timer:start(
+    timeout,
+    0,
+    vim.schedule_wrap(function()
+      self:onUnmount()
+    end)
+  )
 end
 
 function Picker:_cancel_idle_timer()
@@ -128,7 +132,7 @@ end
 
 ---@param on_complete? function
 function Picker:load(on_complete)
-  self.source.load_data(function(nodes, stats)
+  self.source.load_data(function(nodes, _stats)
     if self.tree then
       self.tree:set_nodes(nodes)
       self.tree:render()
@@ -241,7 +245,7 @@ function Picker:_bind_keymaps()
   end
 
   for key, action_name in pairs(self.config.keymaps) do
-    if action_name == "close" then
+    if action_name == "close" then -- luacheck: ignore 542
       -- Handled by host
     elseif action_name == "select" then
       vim.keymap.set("n", key, function()

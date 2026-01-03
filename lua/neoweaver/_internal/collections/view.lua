@@ -40,7 +40,9 @@ local function create_collection_node(collection, children)
   }, children)
 end
 
+-- luacheck: push ignore 631
 ---@param opts { title: string, prompt: string, default_value?: string, bottom_text?: string, border_highlight?: string, width?: number, on_submit: fun(value: string), on_close?: fun() }
+-- luacheck: pop
 local function create_input_box(opts)
   local width = opts.width or 40
   local border_text = { top = opts.title, top_align = "center" }
@@ -140,7 +142,8 @@ local function load_data(callback)
           table.insert(children, create_note_node(note))
         end
 
-        local nested_collections = build_collection_nodes_recursive(data.collections, data.notes_by_collection or {}, collection.id)
+        local notes_by_coll = data.notes_by_collection or {}
+        local nested_collections = build_collection_nodes_recursive(data.collections, notes_by_coll, collection.id)
         vim.list_extend(children, nested_collections)
 
         table.insert(child_nodes, create_collection_node(collection, children))
@@ -178,7 +181,7 @@ local function load_data(callback)
   end)
 end
 
-local function prepare_node(node, parent)
+local function prepare_node(node, _parent)
   local line = NuiLine()
 
   local indent = string.rep("  ", node:get_depth() - 1)
@@ -307,14 +310,16 @@ M.source = {
           elseif node.type == "note" then
             api.notes.get({ id = node.note_id }, function(get_res)
               if get_res.error then
-                vim.notify("Failed to fetch note: " .. (get_res.error.message or vim.inspect(get_res.error)), vim.log.levels.ERROR)
+                local msg = "Failed to fetch note: " .. (get_res.error.message or vim.inspect(get_res.error))
+                vim.notify(msg, vim.log.levels.ERROR)
                 return
               end
 
               local note = get_res.data
               api.notes.patch({ id = node.note_id, title = value }, note.etag, function(patch_res)
                 if patch_res.error then
-                  vim.notify("Failed to rename note: " .. (patch_res.error.message or vim.inspect(patch_res.error)), vim.log.levels.ERROR)
+                  local msg = "Failed to rename note: " .. (patch_res.error.message or vim.inspect(patch_res.error))
+                  vim.notify(msg, vim.log.levels.ERROR)
                   return
                 end
                 vim.notify("Renamed note to: " .. patch_res.data.title, vim.log.levels.INFO)
@@ -348,7 +353,7 @@ M.source = {
           end
 
           if node.type == "collection" then
-            collections.delete_collection(node.collection_id, function(success, err)
+            collections.delete_collection(node.collection_id, function(_success, err)
               if err then
                 vim.notify("Failed to delete collection: " .. (err.message or vim.inspect(err)), vim.log.levels.ERROR)
                 return
@@ -361,7 +366,8 @@ M.source = {
           elseif node.type == "note" then
             api.notes.delete({ id = node.note_id }, function(res)
               if res.error then
-                vim.notify("Failed to delete note: " .. (res.error.message or vim.inspect(res.error)), vim.log.levels.ERROR)
+                local msg = "Failed to delete note: " .. (res.error.message or vim.inspect(res.error))
+                vim.notify(msg, vim.log.levels.ERROR)
                 return
               end
               vim.notify("Deleted note: " .. node.name, vim.log.levels.INFO)

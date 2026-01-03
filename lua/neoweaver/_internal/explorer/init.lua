@@ -167,9 +167,7 @@ end
 
 ---@return boolean
 function M.is_open()
-  return state.split ~= nil
-    and state.split.winid ~= nil
-    and vim.api.nvim_win_is_valid(state.split.winid)
+  return state.split ~= nil and state.split.winid ~= nil and vim.api.nvim_win_is_valid(state.split.winid)
 end
 
 ---@return boolean

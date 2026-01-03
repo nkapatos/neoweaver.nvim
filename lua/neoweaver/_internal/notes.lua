@@ -1,17 +1,9 @@
 ---
 --- notes.lua - Note management for Neoweaver (v3)
 --- Handles note listing, opening, editing, and saving
----
---- Reference: clients/mw/notes.lua (v1 implementation)
----
 local api = require("neoweaver._internal.api")
 local buffer_manager = require("neoweaver._internal.buffer.manager")
 local diff = require("neoweaver._internal.diff")
-local config_module = require("neoweaver._internal.config")
-
--- TODO: Remove when picker refactor PoC is complete
--- Old picker import commented out - functionality moved to collections/view.lua
--- local picker = require("neoweaver._internal.ui.picker")
 
 -- Debounce state for create_note
 local last_create_time = 0
@@ -148,51 +140,6 @@ handle_conflict = function(bufnr, note_id)
       end,
     })
   end)
-end
-
---- List all notes using nui picker
---- TODO: Remove when picker refactor PoC is complete
---- This function is disabled - functionality moved to collections/view.lua
-function M.list_notes()
-  vim.notify("list_notes() disabled - use explorer with collections view", vim.log.levels.WARN)
-  --[[ Original implementation commented out for picker refactor PoC
-  ---@type mind.v3.ListNotesRequest
-  local req = {
-    pageSize = 100,
-    pageToken = "",
-  }
-
-  api.notes.list(req, function(res)
-    if res.error then
-      vim.notify("Error listing notes: " .. vim.inspect(res.error), vim.log.levels.ERROR)
-      return
-    end
-
-    ---@type mind.v3.ListNotesResponse
-    local list_res = res.data
-    local notes = list_res.notes or {}
-
-    if #notes == 0 then
-      vim.notify("No notes found!", vim.log.levels.INFO)
-      return
-    end
-
-    local cfg = config_module.get().picker or {}
-
-    picker.pick(notes, {
-      prompt = "Select a note",
-      format_item = function(note, _idx)
-        return string.format("[%d] %s", note.id, note.title)
-      end,
-      on_submit = function(note, _idx)
-        M.open_note(tonumber(note.id))
-      end,
-      size = cfg.size,
-      position = cfg.position,
-      border = cfg.border,
-    })
-  end)
-  --]]
 end
 
 --- Create a new note with server-generated title (NewNote endpoint)
@@ -409,62 +356,9 @@ function M.delete_note(note_id)
 end
 
 --- Find notes by title using interactive search picker
---- TODO: Remove when picker refactor PoC is complete
---- This function is disabled - functionality will be reimplemented with new picker
+--- See issue #24 for reimplementation with new picker architecture
 function M.find_notes()
-  vim.notify("find_notes() disabled - pending picker refactor", vim.log.levels.WARN)
-  --[[ Original implementation commented out for picker refactor PoC
-  local search_picker = require("neoweaver._internal.ui.search_picker")
-
-  --- Search function - calls FindNotes API
-  ---@param query string Search query
-  ---@param page_token string|nil Pagination token
-  ---@param callback function Callback(items, error, has_more, next_token)
-  local function search_fn(query, page_token, callback)
-    ---@type mind.v3.FindNotesRequest
-    local req = {
-      title = query,
-      pageSize = 100,
-      pageToken = page_token,
-      fieldMask = "id,title,collectionId,collectionPath",
-    }
-
-    api.notes.find(req, function(res)
-      if res.error then
-        callback(nil, res.error.message, false, nil)
-        return
-      end
-
-      ---@type mind.v3.FindNotesResponse
-      local find_res = res.data
-      local notes = find_res.notes or {}
-      local has_more = find_res.nextPageToken ~= nil and find_res.nextPageToken ~= ""
-
-      callback(notes, nil, has_more, find_res.nextPageToken)
-    end)
-  end
-
-  -- Show search picker
-  search_picker.show({
-    prompt = "Find notes:",
-    min_query_length = 3,
-    debounce_ms = 300,
-    empty_message = "No notes found",
-    search_fn = search_fn,
-    format_item = function(note, _idx)
-      -- Format: "Note Title          collection-path"
-      local title = note.title or "Untitled"
-      local path = note.collectionPath or ""
-      return string.format("%-40s %s", title, path)
-    end,
-    on_select = function(note, _idx)
-      M.open_note(tonumber(note.id))
-    end,
-    on_close = function()
-      -- Optional: handle picker close
-    end,
-  })
-  --]]
+  vim.notify("find_notes() disabled - pending picker refactor (see #24)", vim.log.levels.WARN)
 end
 
 function M.setup(opts)
