@@ -16,6 +16,97 @@ local api = require("neoweaver._internal.api")
 local M = {}
 
 --
+-- Helpers
+--
+
+--- Returns empty stats structure for error/empty cases
+--- Used when data loading fails or returns no data
+---@return ViewStats Empty stats with zero counts for Collections and Notes
+local function empty_stats()
+  return { items = { { label = "Collections", count = 0 }, { label = "Notes", count = 0 } } }
+end
+
+--- Creates a NuiTree.Node for a note
+--- Standardizes note node creation with consistent id format, icon, and highlight
+---@param note table Note data with id, title, collectionId fields
+---@return NuiTree.Node Node configured for note display
+local function create_note_node(note)
+  return NuiTree.Node({
+    id = "note:" .. note.id,
+    type = "note",
+    name = note.title,
+    icon = "󰈙",
+    highlight = "String",
+    note_id = note.id,
+    collection_id = note.collectionId,
+  })
+end
+
+--- Creates a NuiTree.Node for a collection
+--- Standardizes collection node creation with system/regular icon distinction
+---@param collection table Collection data with id, displayName, isSystem fields
+---@param children NuiTree.Node[]|nil Optional child nodes (notes and sub-collections)
+---@return NuiTree.Node Node configured for collection display
+local function create_collection_node(collection, children)
+  return NuiTree.Node({
+    id = "collection:" .. collection.id,
+    type = "collection",
+    name = collection.displayName,
+    icon = collection.isSystem and "󰉖" or "󰉋",
+    highlight = collection.isSystem and "Special" or "Directory",
+    collection_id = collection.id,
+    is_system = collection.isSystem or false,
+  }, children)
+end
+
+--- Creates and mounts a nui.input popup with standard styling
+--- Handles common setup: positioning, border style, win_options, and Esc mapping
+---@param opts table Input configuration options
+---@param opts.title string Border title text (e.g., " Create ", " Rename ")
+---@param opts.prompt string Input prompt (e.g., "> " or confirmation message)
+---@param opts.default_value? string Pre-filled input value (for rename)
+---@param opts.bottom_text? string Bottom border hint text (for create)
+---@param opts.border_highlight? string Border highlight group (default: "FloatBorder")
+---@param opts.width? number Input width (default: 40)
+---@param opts.on_submit fun(value: string) Called with trimmed input on submit
+---@param opts.on_close? fun() Called when input is cancelled (optional)
+local function create_input_box(opts)
+  local width = opts.width or 40
+  local border_text = { top = opts.title, top_align = "center" }
+  if opts.bottom_text then
+    border_text.bottom = opts.bottom_text
+    border_text.bottom_align = "left"
+  end
+
+  local input = Input({
+    relative = "cursor",
+    position = { row = 1, col = 0 },
+    size = { width = width },
+    border = {
+      style = "rounded",
+      text = border_text,
+    },
+    win_options = {
+      winhighlight = "Normal:Normal,FloatBorder:" .. (opts.border_highlight or "FloatBorder"),
+    },
+  }, {
+    prompt = opts.prompt,
+    default_value = opts.default_value,
+    on_close = opts.on_close or function() end,
+    on_submit = opts.on_submit,
+  })
+
+  input:mount()
+
+  -- Add Esc to close in normal mode
+  input:map("n", "<Esc>", function()
+    input:unmount()
+  end, { noremap = true })
+
+  return input
+end
+
+--
 -- Data Loading
 --
 
@@ -34,16 +125,7 @@ local function build_collection_nodes_recursive(collections_data, notes_by_colle
       -- Add note children first
       local collection_notes = notes_by_collection[collection.id] or {}
       for _, note in ipairs(collection_notes) do
-        local note_node = NuiTree.Node({
-          id = "note:" .. note.id,
-          type = "note",
-          name = note.title,
-          icon = "󰈙",
-          highlight = "String",
-          note_id = note.id,
-          collection_id = note.collectionId,
-        })
-        table.insert(children, note_node)
+        table.insert(children, create_note_node(note))
       end
 
       -- Then recursively add child collections
@@ -51,17 +133,7 @@ local function build_collection_nodes_recursive(collections_data, notes_by_colle
       vim.list_extend(children, child_collections)
 
       -- Create collection node with children
-      local collection_node = NuiTree.Node({
-        id = "collection:" .. collection.id,
-        type = "collection",
-        name = collection.displayName,
-        icon = collection.isSystem and "󰉖" or "󰉋",
-        highlight = collection.isSystem and "Special" or "Directory",
-        collection_id = collection.id,
-        is_system = collection.isSystem or false,
-      }, children)
-
-      table.insert(nodes, collection_node)
+      table.insert(nodes, create_collection_node(collection, children))
     end
   end
 
@@ -74,13 +146,13 @@ local function load_data(callback)
   collections.list_collections_with_notes({}, function(data, err)
     if err then
       vim.notify("Failed to load collections: " .. (err.message or vim.inspect(err)), vim.log.levels.ERROR)
-      callback({}, { items = { { label = "Collections", count = 0 }, { label = "Notes", count = 0 } } })
+      callback({}, empty_stats())
       return
     end
 
     -- Handle empty collections
     if not data or not data.collections or #data.collections == 0 then
-      callback({}, { items = { { label = "Collections", count = 0 }, { label = "Notes", count = 0 } } })
+      callback({}, empty_stats())
       return
     end
 
@@ -95,7 +167,7 @@ local function load_data(callback)
 
     if not default_collection then
       vim.notify("Default collection not found", vim.log.levels.ERROR)
-      callback({}, { items = { { label = "Collections", count = 0 }, { label = "Notes", count = 0 } } })
+      callback({}, empty_stats())
       return
     end
 
@@ -106,16 +178,7 @@ local function load_data(callback)
     -- Add notes directly under default collection
     local default_notes = data.notes_by_collection and data.notes_by_collection[1] or {}
     for _, note in ipairs(default_notes) do
-      local note_node = NuiTree.Node({
-        id = "note:" .. note.id,
-        type = "note",
-        name = note.title,
-        icon = "󰈙",
-        highlight = "String",
-        note_id = note.id,
-        collection_id = note.collectionId,
-      })
-      table.insert(child_nodes, note_node)
+      table.insert(child_nodes, create_note_node(note))
     end
 
     -- Add child collections (parent_id = 1 or nil for legacy)
@@ -126,16 +189,7 @@ local function load_data(callback)
         -- Add note children first
         local collection_notes = data.notes_by_collection and data.notes_by_collection[collection.id] or {}
         for _, note in ipairs(collection_notes) do
-          local note_node = NuiTree.Node({
-            id = "note:" .. note.id,
-            type = "note",
-            name = note.title,
-            icon = "󰈙",
-            highlight = "String",
-            note_id = note.id,
-            collection_id = note.collectionId,
-          })
-          table.insert(children, note_node)
+          table.insert(children, create_note_node(note))
         end
 
         -- Then recursively add nested collections
@@ -143,17 +197,7 @@ local function load_data(callback)
         vim.list_extend(children, nested_collections)
 
         -- Create collection node
-        local collection_node = NuiTree.Node({
-          id = "collection:" .. collection.id,
-          type = "collection",
-          name = collection.displayName,
-          icon = collection.isSystem and "󰉖" or "󰉋",
-          highlight = collection.isSystem and "Special" or "Directory",
-          collection_id = collection.id,
-          is_system = collection.isSystem or false,
-        }, children)
-
-        table.insert(child_nodes, collection_node)
+        table.insert(child_nodes, create_collection_node(collection, children))
       end
     end
 
@@ -246,7 +290,7 @@ end
 --- TODO: Track stats from last load_data call when implementing statusline
 ---@return ViewStats
 local function get_stats()
-  return { items = { { label = "Collections", count = 0 }, { label = "Notes", count = 0 } } }
+  return empty_stats()
 end
 
 --
@@ -286,31 +330,12 @@ M.source = {
         return
       end
 
-      local input = Input({
-        relative = "cursor",
-        position = { row = 1, col = 0 },
-        size = { width = 40 },
-        border = {
-          style = "rounded",
-          text = {
-            top = " Create ",
-            top_align = "center",
-            bottom = " name │ name/ = collection ",
-            bottom_align = "left",
-          },
-        },
-        win_options = {
-          winhighlight = "Normal:Normal,FloatBorder:FloatBorder",
-        },
-      }, {
+      create_input_box({
+        title = " Create ",
         prompt = "> ",
-        on_close = function()
-          -- User cancelled, do nothing
-        end,
+        bottom_text = " name │ name/ = collection ",
         on_submit = function(value)
-          -- Trim whitespace
           value = vim.trim(value)
-
           if value == "" then
             return
           end
@@ -348,13 +373,6 @@ M.source = {
           end
         end,
       })
-
-      input:mount()
-
-      -- Add Esc to close in normal mode
-      input:map("n", "<Esc>", function()
-        input:unmount()
-      end, { noremap = true })
     end,
 
     --- Rename collection or note
@@ -368,28 +386,11 @@ M.source = {
         return
       end
 
-      local input = Input({
-        relative = "cursor",
-        position = { row = 1, col = 0 },
-        size = { width = 40 },
-        border = {
-          style = "rounded",
-          text = {
-            top = " Rename ",
-            top_align = "center",
-          },
-        },
-        win_options = {
-          winhighlight = "Normal:Normal,FloatBorder:FloatBorder",
-        },
-      }, {
+      create_input_box({
+        title = " Rename ",
         prompt = "> ",
         default_value = node.name,
-        on_close = function()
-          -- User cancelled, do nothing
-        end,
         on_submit = function(value)
-          -- Trim whitespace
           value = vim.trim(value)
 
           if value == "" then
@@ -398,7 +399,6 @@ M.source = {
           end
 
           if value == node.name then
-            -- No change
             return
           end
 
@@ -439,13 +439,6 @@ M.source = {
           end
         end,
       })
-
-      input:mount()
-
-      -- Add Esc to close in normal mode
-      input:map("n", "<Esc>", function()
-        input:unmount()
-      end, { noremap = true })
     end,
 
     --- Delete collection or note
@@ -462,25 +455,11 @@ M.source = {
       local entity_type = node.type == "collection" and "collection" or "note"
       local confirm_prompt = string.format("Delete %s '%s'? (y/N): ", entity_type, node.name)
 
-      local input = Input({
-        relative = "cursor",
-        position = { row = 1, col = 0 },
-        size = { width = math.max(40, #confirm_prompt + 6) },
-        border = {
-          style = "rounded",
-          text = {
-            top = " Delete ",
-            top_align = "center",
-          },
-        },
-        win_options = {
-          winhighlight = "Normal:Normal,FloatBorder:WarningMsg",
-        },
-      }, {
+      create_input_box({
+        title = " Delete ",
         prompt = confirm_prompt,
-        on_close = function()
-          -- User cancelled, do nothing
-        end,
+        width = math.max(40, #confirm_prompt + 6),
+        border_highlight = "WarningMsg",
         on_submit = function(value)
           if value ~= "y" and value ~= "Y" then
             return
@@ -513,13 +492,6 @@ M.source = {
           end
         end,
       })
-
-      input:mount()
-
-      -- Add Esc to close in normal mode
-      input:map("n", "<Esc>", function()
-        input:unmount()
-      end, { noremap = true })
     end,
   },
 }
