@@ -1,9 +1,4 @@
----
---- tags/view.lua - ViewSource implementation for tags domain
----
---- Implements the ViewSource interface for the tags domain.
---- Tags are read-only (list and select only).
----
+--- tags/view.lua - ViewSource for tags (read-only)
 
 local NuiTree = require("nui.tree")
 local NuiLine = require("nui.line")
@@ -13,17 +8,12 @@ local api = require("neoweaver._internal.api")
 
 local M = {}
 
---- Cached stats from last load
 local cached_stats = { items = { { label = "Tags", count = 0 } } }
 
---- Returns empty stats structure for error/empty cases
----@return ViewStats
 local function empty_stats()
   return { items = { { label = "Tags", count = 0 } } }
 end
 
---- Fetch tags from API and build NuiTree.Node[]
----@param callback fun(nodes: NuiTree.Node[], stats: ViewStats)
 local function load_data(callback)
   tags.list_tags({}, function(tags_list, err)
     if err then
@@ -33,7 +23,6 @@ local function load_data(callback)
     end
 
     local nodes = {}
-
     for _, tag in ipairs(tags_list) do
       table.insert(nodes, NuiTree.Node({
         id = "tag:" .. tag.id,
@@ -50,33 +39,22 @@ local function load_data(callback)
   end)
 end
 
---- Render a tag node for display
----@param node NuiTree.Node
----@param parent NuiTree.Node|nil
----@return NuiLine[]
 local function prepare_node(node, parent)
   local line = NuiLine()
 
-  -- Indentation
   local indent = string.rep("  ", node:get_depth() - 1)
   line:append(indent)
-
-  -- No expand/collapse for flat tag list
   line:append("  ")
 
-  -- Icon
   if node.icon then
     line:append(node.icon .. " ", node.highlight or "Normal")
   end
 
-  -- Name
   line:append(node.name, node.highlight or "Normal")
 
   return { line }
 end
 
---- Get stats for statusline
----@return ViewStats
 local function get_stats()
   return cached_stats
 end
@@ -89,15 +67,12 @@ M.source = {
   prepare_node = prepare_node,
   get_stats = get_stats,
   actions = {
-    --- Select tag
-    ---@param node NuiTree.Node
     select = function(node)
       vim.notify("Selected tag: " .. (node.name or "???") .. " (id: " .. (node.tag_id or "?") .. ")", vim.log.levels.INFO)
     end,
   },
 }
 
--- Self-register with picker manager
 manager.register_source("tags", M.source)
 
 return M

@@ -1,10 +1,7 @@
+--- collections/view.lua - ViewSource for collections and notes
 ---
---- collections/view.lua - ViewSource implementation for collections domain
----
---- Node types: collection (has collection_id, is_system, is_root?), note (has note_id, collection_id)
---- Default collection (id=1) becomes root node displayed with server name.
---- Create action: "name" = note, "name/" = collection (trailing slash convention).
----
+--- Node types: collection, note
+--- Create convention: "name" = note, "name/" = collection
 
 local NuiTree = require("nui.tree")
 local NuiLine = require("nui.line")
@@ -15,21 +12,10 @@ local api = require("neoweaver._internal.api")
 
 local M = {}
 
---
--- Helpers
---
-
---- Returns empty stats structure for error/empty cases
---- Used when data loading fails or returns no data
----@return ViewStats Empty stats with zero counts for Collections and Notes
 local function empty_stats()
   return { items = { { label = "Collections", count = 0 }, { label = "Notes", count = 0 } } }
 end
 
---- Creates a NuiTree.Node for a note
---- Standardizes note node creation with consistent id format, icon, and highlight
----@param note table Note data with id, title, collectionId fields
----@return NuiTree.Node Node configured for note display
 local function create_note_node(note)
   return NuiTree.Node({
     id = "note:" .. note.id,
@@ -42,11 +28,6 @@ local function create_note_node(note)
   })
 end
 
---- Creates a NuiTree.Node for a collection
---- Standardizes collection node creation with system/regular icon distinction
----@param collection table Collection data with id, displayName, isSystem fields
----@param children NuiTree.Node[]|nil Optional child nodes (notes and sub-collections)
----@return NuiTree.Node Node configured for collection display
 local function create_collection_node(collection, children)
   return NuiTree.Node({
     id = "collection:" .. collection.id,
@@ -59,17 +40,7 @@ local function create_collection_node(collection, children)
   }, children)
 end
 
---- Creates and mounts a nui.input popup with standard styling
---- Handles common setup: positioning, border style, win_options, and Esc mapping
----@param opts table Input configuration options
----@param opts.title string Border title text (e.g., " Create ", " Rename ")
----@param opts.prompt string Input prompt (e.g., "> " or confirmation message)
----@param opts.default_value? string Pre-filled input value (for rename)
----@param opts.bottom_text? string Bottom border hint text (for create)
----@param opts.border_highlight? string Border highlight group (default: "FloatBorder")
----@param opts.width? number Input width (default: 40)
----@param opts.on_submit fun(value: string) Called with trimmed input on submit
----@param opts.on_close? fun() Called when input is cancelled (optional)
+---@param opts { title: string, prompt: string, default_value?: string, bottom_text?: string, border_highlight?: string, width?: number, on_submit: fun(value: string), on_close?: fun() }
 local function create_input_box(opts)
   local width = opts.width or 40
   local border_text = { top = opts.title, top_align = "center" }
@@ -97,8 +68,6 @@ local function create_input_box(opts)
   })
 
   input:mount()
-
-  -- Add Esc to close in normal mode
   input:map("n", "<Esc>", function()
     input:unmount()
   end, { noremap = true })
@@ -106,15 +75,6 @@ local function create_input_box(opts)
   return input
 end
 
---
--- Data Loading
---
-
---- Build NuiTree.Node[] recursively from collections and notes data
----@param collections_data table[] Flat list of collections from API
----@param notes_by_collection table<number, table[]> Notes grouped by collection_id
----@param parent_id number|nil Parent collection ID (nil for root collections)
----@return NuiTree.Node[] Array of NuiTree nodes with domain properties
 local function build_collection_nodes_recursive(collections_data, notes_by_collection, parent_id)
   local nodes = {}
 
@@ -122,17 +82,14 @@ local function build_collection_nodes_recursive(collections_data, notes_by_colle
     if collection.parentId == parent_id then
       local children = {}
 
-      -- Add note children first
       local collection_notes = notes_by_collection[collection.id] or {}
       for _, note in ipairs(collection_notes) do
         table.insert(children, create_note_node(note))
       end
 
-      -- Then recursively add child collections
       local child_collections = build_collection_nodes_recursive(collections_data, notes_by_collection, collection.id)
       vim.list_extend(children, child_collections)
 
-      -- Create collection node with children
       table.insert(nodes, create_collection_node(collection, children))
     end
   end
@@ -140,8 +97,6 @@ local function build_collection_nodes_recursive(collections_data, notes_by_colle
   return nodes
 end
 
---- Fetch collections and notes, build NuiTree.Node[] hierarchy
----@param callback fun(nodes: NuiTree.Node[], stats: ViewStats)
 local function load_data(callback)
   collections.list_collections_with_notes({}, function(data, err)
     if err then
@@ -150,13 +105,11 @@ local function load_data(callback)
       return
     end
 
-    -- Handle empty collections
     if not data or not data.collections or #data.collections == 0 then
       callback({}, empty_stats())
       return
     end
 
-    -- Find default collection (id=1) - this becomes our root node displayed as "server"
     local default_collection = nil
     for _, collection in ipairs(data.collections) do
       if collection.id == 1 then
@@ -171,56 +124,44 @@ local function load_data(callback)
       return
     end
 
-    -- Build children of default collection
-    -- parent_id = 1 (default collection) OR parent_id = nil (legacy top-level collections)
     local child_nodes = {}
 
-    -- Add notes directly under default collection
     local default_notes = data.notes_by_collection and data.notes_by_collection[1] or {}
     for _, note in ipairs(default_notes) do
       table.insert(child_nodes, create_note_node(note))
     end
 
-    -- Add child collections (parent_id = 1 or nil for legacy)
     for _, collection in ipairs(data.collections) do
       if collection.id ~= 1 and (collection.parentId == 1 or collection.parentId == nil) then
         local children = {}
 
-        -- Add note children first
         local collection_notes = data.notes_by_collection and data.notes_by_collection[collection.id] or {}
         for _, note in ipairs(collection_notes) do
           table.insert(children, create_note_node(note))
         end
 
-        -- Then recursively add nested collections
         local nested_collections = build_collection_nodes_recursive(data.collections, data.notes_by_collection or {}, collection.id)
         vim.list_extend(children, nested_collections)
 
-        -- Create collection node
         table.insert(child_nodes, create_collection_node(collection, children))
       end
     end
 
-    -- Create root node from default collection, displayed as server name
-    local servers = api.config.servers
-    local current_server = api.config.current_server
-    local server_name = current_server or "server"
+    local server_name = api.config.current_server or "server"
 
     local root_node = NuiTree.Node({
       id = "collection:" .. default_collection.id,
       type = "collection",
-      name = server_name, -- Display server name instead of "default"
+      name = server_name,
       icon = "󰒋",
       highlight = "Title",
       collection_id = default_collection.id,
-      is_system = true, -- Default collection is system-managed
-      is_root = true, -- Mark as root for special handling if needed
+      is_system = true,
+      is_root = true,
     }, child_nodes)
 
-    -- Auto-expand the root node
     root_node:expand()
 
-    -- Count notes for stats (exclude default collection from collection count since it's the root)
     local note_count = 0
     if data.notes_by_collection then
       for _, note_list in pairs(data.notes_by_collection) do
@@ -228,52 +169,33 @@ local function load_data(callback)
       end
     end
 
-    -- Return nodes and stats
     callback({ root_node }, {
       items = {
-        { label = "Collections", count = #data.collections - 1 }, -- Exclude default collection from count
+        { label = "Collections", count = #data.collections - 1 },
         { label = "Notes", count = note_count },
       },
     })
   end)
 end
 
---
--- Node Rendering
---
-
---- Render a node for display
---- Uses domain properties (type, icon, highlight, is_default, is_system) for rendering
----@param node NuiTree.Node
----@param parent NuiTree.Node|nil
----@return NuiLine[]
 local function prepare_node(node, parent)
   local line = NuiLine()
 
-  -- Indentation (2 spaces per level)
   local indent = string.rep("  ", node:get_depth() - 1)
   line:append(indent)
 
-  -- Expand/collapse indicator for nodes with children
   if node:has_children() then
-    if node:is_expanded() then
-      line:append("▾ ", "NeoTreeExpander")
-    else
-      line:append("▸ ", "NeoTreeExpander")
-    end
+    line:append(node:is_expanded() and "▾ " or "▸ ", "NeoTreeExpander")
   else
     line:append("  ")
   end
 
-  -- Icon (use provided icon or empty space)
   if node.icon then
     line:append(node.icon .. " ", node.highlight or "Normal")
   end
 
-  -- Name with highlight
   line:append(node.name, node.highlight or "Normal")
 
-  -- Special suffix for root node (default collection displayed as server)
   if node.is_root then
     line:append(" ", "Comment")
     line:append("(default)", "Comment")
@@ -282,20 +204,9 @@ local function prepare_node(node, parent)
   return { line }
 end
 
---
--- Stats
---
-
---- Get stats for statusline
---- TODO: Track stats from last load_data call when implementing statusline
----@return ViewStats
 local function get_stats()
   return empty_stats()
 end
-
---
--- ViewSource Definition
---
 
 ---@type ViewSource
 M.source = {
@@ -305,26 +216,15 @@ M.source = {
   prepare_node = prepare_node,
   get_stats = get_stats,
   actions = {
-    --- Open note (leaf nodes only - expand/collapse handled by picker)
-    --- Note: select does NOT receive refresh_cb - it doesn't mutate data
-    ---@param node NuiTree.Node
     select = function(node)
       if node.type == "note" then
         local notes = require("neoweaver._internal.notes")
         notes.open_note(node.note_id)
       end
-      -- Other types: no-op (picker handles expand/collapse for nodes with children)
     end,
 
-    --- Create new note or collection
-    --- Trailing slash convention: "name" = note, "name/" = collection
-    ---@param node NuiTree.Node
-    ---@param refresh_cb function|nil Callback to refresh tree after mutation
     create = function(node, refresh_cb)
-      -- Get parent collection_id from node
-      -- Works for both collection nodes (node itself) and note nodes (note's parent)
       local parent_id = node.collection_id
-
       if not parent_id then
         vim.notify("Cannot create here", vim.log.levels.WARN)
         return
@@ -340,8 +240,7 @@ M.source = {
             return
           end
 
-          -- Check for trailing slash
-          local has_trailing_slash = value:match("/$")
+          local is_collection = value:match("/$")
           local name = value:gsub("/$", "")
 
           if name == "" then
@@ -349,8 +248,7 @@ M.source = {
             return
           end
 
-          if has_trailing_slash then
-            -- Create collection
+          if is_collection then
             collections.create_collection(name, parent_id, function(collection, err)
               if err then
                 vim.notify("Failed to create collection: " .. (err.message or vim.inspect(err)), vim.log.levels.ERROR)
@@ -362,8 +260,6 @@ M.source = {
               end
             end)
           else
-            -- Create note via notes domain module
-            -- This opens the note buffer automatically and calls refresh_cb when done
             local notes = require("neoweaver._internal.notes")
             notes.create_note(name, parent_id, function(_note)
               if refresh_cb then
@@ -375,12 +271,7 @@ M.source = {
       })
     end,
 
-    --- Rename collection or note
-    --- System collections cannot be renamed
-    ---@param node NuiTree.Node
-    ---@param refresh_cb function|nil Callback to refresh tree after mutation
     rename = function(node, refresh_cb)
-      -- Don't allow renaming system collections
       if node.type == "collection" and node.is_system then
         vim.notify("Cannot rename system collections", vim.log.levels.WARN)
         return
@@ -403,7 +294,6 @@ M.source = {
           end
 
           if node.type == "collection" then
-            -- Rename collection
             collections.rename_collection(node.collection_id, value, function(collection, err)
               if err then
                 vim.notify("Failed to rename collection: " .. (err.message or vim.inspect(err)), vim.log.levels.ERROR)
@@ -415,7 +305,6 @@ M.source = {
               end
             end)
           elseif node.type == "note" then
-            -- Rename note: fetch first to get etag, then patch
             api.notes.get({ id = node.note_id }, function(get_res)
               if get_res.error then
                 vim.notify("Failed to fetch note: " .. (get_res.error.message or vim.inspect(get_res.error)), vim.log.levels.ERROR)
@@ -423,9 +312,7 @@ M.source = {
               end
 
               local note = get_res.data
-              local etag = note.etag
-
-              api.notes.patch({ id = node.note_id, title = value }, etag, function(patch_res)
+              api.notes.patch({ id = node.note_id, title = value }, note.etag, function(patch_res)
                 if patch_res.error then
                   vim.notify("Failed to rename note: " .. (patch_res.error.message or vim.inspect(patch_res.error)), vim.log.levels.ERROR)
                   return
@@ -441,12 +328,7 @@ M.source = {
       })
     end,
 
-    --- Delete collection or note
-    --- System collections cannot be deleted
-    ---@param node NuiTree.Node
-    ---@param refresh_cb function|nil Callback to refresh tree after mutation
     delete = function(node, refresh_cb)
-      -- Don't allow deleting system collections
       if node.type == "collection" and node.is_system then
         vim.notify("Cannot delete system collections", vim.log.levels.WARN)
         return
@@ -466,7 +348,6 @@ M.source = {
           end
 
           if node.type == "collection" then
-            -- Delete collection
             collections.delete_collection(node.collection_id, function(success, err)
               if err then
                 vim.notify("Failed to delete collection: " .. (err.message or vim.inspect(err)), vim.log.levels.ERROR)
@@ -478,7 +359,6 @@ M.source = {
               end
             end)
           elseif node.type == "note" then
-            -- Delete note
             api.notes.delete({ id = node.note_id }, function(res)
               if res.error then
                 vim.notify("Failed to delete note: " .. (res.error.message or vim.inspect(res.error)), vim.log.levels.ERROR)
@@ -496,7 +376,6 @@ M.source = {
   },
 }
 
--- Self-register with picker manager
 manager.register_source("collections", M.source)
 
 return M
