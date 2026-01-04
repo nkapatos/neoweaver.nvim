@@ -9,6 +9,7 @@ local event = require("nui.utils.autocmd").event
 
 local api = require("neoweaver._internal.api")
 local config_module = require("neoweaver._internal.config")
+local meta = require("neoweaver._internal.meta")
 
 local M = {}
 

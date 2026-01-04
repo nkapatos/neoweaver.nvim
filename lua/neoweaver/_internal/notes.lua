@@ -4,6 +4,7 @@
 local api = require("neoweaver._internal.api")
 local buffer_manager = require("neoweaver._internal.buffer.manager")
 local diff = require("neoweaver._internal.diff")
+local meta = require("neoweaver._internal.meta")
 
 -- Debounce state for create_note
 local last_create_time = 0
