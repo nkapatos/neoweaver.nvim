@@ -67,6 +67,9 @@ local function open_note_buffer(note, opts)
   vim.b[bufnr].note_etag = note.etag
   vim.b[bufnr].note_collection_id = note.collectionId
   vim.b[bufnr].note_type_id = note.noteTypeId
+  -- DEPRECATED: note_metadata is from old design where metadata was stored on note object
+  -- Server now handles frontmatter (in body) and auto-metadata (sent via metadata field) separately
+  -- This field will be removed in a future version
   vim.b[bufnr].note_metadata = note.metadata or {}
 
   return bufnr
@@ -184,11 +187,18 @@ end
 ---@param collection_id number The collection ID to create the note in
 ---@param callback? fun(note: table) Optional callback after note is created and buffer opened
 function M.create_note(title, collection_id, callback)
+  -- Extract auto-metadata (project context, git info, etc.)
+  local extracted_meta = meta.load_metadata()
+
   ---@type mind.v3.CreateNoteRequest
   local req = {
     title = title,
     collectionId = collection_id,
   }
+
+  if extracted_meta then
+    req.metadata = extracted_meta
+  end
 
   api.notes.create(req, function(res)
     if res.error then
@@ -287,7 +297,9 @@ function M.save_note(bufnr, id)
   local etag = vim.b[bufnr].note_etag
   local collection_id = vim.b[bufnr].note_collection_id or 1
   local note_type_id = vim.b[bufnr].note_type_id
-  local metadata = vim.b[bufnr].note_metadata or {}
+
+  -- Extract auto-metadata (project context, git info, etc.)
+  local extracted_meta = meta.load_metadata()
 
   ---@type mind.v3.ReplaceNoteRequest
   local req = {
@@ -301,8 +313,8 @@ function M.save_note(bufnr, id)
     req.noteTypeId = note_type_id
   end
 
-  if metadata and next(metadata) ~= nil then
-    req.metadata = metadata
+  if extracted_meta then
+    req.metadata = extracted_meta
   end
 
   api.notes.update(req, etag, function(res)

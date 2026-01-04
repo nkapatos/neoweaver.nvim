@@ -113,6 +113,9 @@ local function save_if_needed(bufnr)
 
   local cfg = get_config()
 
+  -- Extract auto-metadata (project context, git info, etc.)
+  local extracted_meta = meta.load_metadata()
+
   -- Check if this is an amend operation (existing note with id)
   local note_id = vim.b[bufnr].neoweaver_quicknote_id
   local note_etag = vim.b[bufnr].neoweaver_quicknote_etag
@@ -128,6 +131,10 @@ local function save_if_needed(bufnr)
       collectionId = cfg.collection_id,
       noteTypeId = cfg.note_type_id,
     }
+
+    if extracted_meta then
+      payload.metadata = extracted_meta
+    end
 
     api.notes.update(payload, note_etag, function(res)
       if res and res.error then
@@ -155,6 +162,10 @@ local function save_if_needed(bufnr)
       collectionId = cfg.collection_id,
       noteTypeId = cfg.note_type_id,
     }
+
+    if extracted_meta then
+      payload.metadata = extracted_meta
+    end
 
     api.notes.create(payload, function(res)
       if res and res.error then
