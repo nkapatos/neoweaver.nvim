@@ -1,12 +1,13 @@
 ---
 --- init.lua - Public API for metadata extraction module
 ---
---- Main entry point for loading project metadata from .weaverc.json,
---- .weaveroot.json, and optionally from configured marker files.
+--- Main entry point for loading project metadata from .weaveroot.json
+--- and auto-detected runtime context (cwd, git info, etc.).
 ---
---- .weaverc.json and .weaveroot.json are always collected when present.
---- Marker extraction (go.mod, package.json, etc.) is opt-in via:
----   require('neoweaver').setup({ metadata = { extract_from_markers = true } })
+--- .weaveroot.json `meta` key provides project-level identity.
+--- .weaverc.json is for plugin settings only, not metadata.
+---
+--- Auto-detected fields: project, project_root, cwd, commit_hash, git_branch
 ---
 --- Usage:
 ---   local meta = require('neoweaver._internal.meta')
