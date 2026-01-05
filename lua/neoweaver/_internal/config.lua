@@ -7,7 +7,10 @@ local M = {}
 M.defaults = {
   allow_multiple_empty_notes = false,
   metadata = {
-    enabled = false, -- EXPERIMENTAL: Enable metadata extraction from .weaverc.json
+    -- Metadata is automatically extracted from:
+    -- - .weaveroot.json `meta` key (project-level identity)
+    -- - Runtime context: project_root, cwd, commit_hash, git_branch
+    -- No configuration options currently - metadata extraction is always enabled
   },
   explorer = {
     show_notifications = true, -- Show notifications on explorer refresh
@@ -95,7 +98,7 @@ function M.apply(opts)
 
   -- Merge metadata configuration
   if opts.metadata ~= nil then
-    M.current.metadata = vim.tbl_extend("force", M.current.metadata, opts.metadata)
+    M.current.metadata = vim.tbl_deep_extend("force", M.current.metadata, opts.metadata)
   end
 
   -- Merge picker configuration

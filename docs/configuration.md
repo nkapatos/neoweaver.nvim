@@ -125,6 +125,74 @@ Notes:
 - `title_template` is passed to `strftime()` when a quicknote saves. Use any valid strftime pattern.
 - `collection_id` and `note_type_id` use default values and are not yet user-configurable.
 
+### metadata
+
+Metadata is automatically extracted and attached to notes when saving. No configuration required.
+
+#### Auto-detected fields
+
+The following fields are captured automatically:
+
+| Field | Description |
+|-------|-------------|
+| `project` | From `.weaveroot.json` `meta.project`, or directory name fallback |
+| `project_root` | Absolute path to project root (where `.weaveroot.json` lives) |
+| `cwd` | Current working directory of the nvim session |
+| `commit_hash` | Git short hash (`git rev-parse --short HEAD`) |
+| `git_branch` | Current git branch (`git branch --show-current`) |
+
+#### .weaveroot.json meta
+
+Additional project-level metadata can be defined in `.weaveroot.json`:
+
+```json
+{
+  "meta": {
+    "project": "Mindweaver",
+    "author": "Your Name",
+    "team": "Core"
+  }
+}
+```
+
+All fields under `meta` are merged with auto-detected fields. `meta` fields override auto-detected ones (e.g., `meta.project` overrides the directory name).
+
+### Project Files
+
+#### .weaveroot / .weaveroot.json
+
+Marks the project root boundary. The extractor walks up from cwd until it finds one of these files.
+
+- `.weaveroot` - Empty file, only marks the boundary
+- `.weaveroot.json` - Marks the boundary AND provides project metadata via the `meta` key
+
+If neither is found, session cwd is used as the project root.
+
+```json
+{
+  "meta": {
+    "project": "my-workspace",
+    "description": "Parent workspace for multiple projects"
+  }
+}
+```
+
+#### .weaverc.json
+
+Project-level plugin settings (NOT metadata). Used to configure plugin behavior per-directory, such as default collection, template, or server.
+
+```json
+{
+  "settings": {
+    "collection_id": 5,
+    "template": "daily",
+    "server": "work"
+  }
+}
+```
+
+Note: `.weaverc.json` does NOT contribute to note metadata. Only `.weaveroot.json` provides project metadata.
+
 ## Complete Setup Example
 
 ```lua

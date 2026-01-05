@@ -1,169 +1,162 @@
 ---
 --- weaverc.lua - Project-level configuration loader for MindWeaver
 ---
---- Loads .weaverc.json from project root to provide project context:
---- - collection_id: Default collection for notes created in this project
---- - note_type_id: Default note type for notes created in this project
---- - project: Project name (overrides auto-detection)
---- - context: Additional project metadata (arbitrary key-value pairs)
+--- Loads .weaverc.json and .weaveroot.json to provide per-project plugin configuration:
+--- - quicknotes: Override quicknotes settings (collection_id, note_type_id, etc.)
+--- - api/server: Override server configuration
 ---
---- This module is read-only: it loads and caches .weaverc.json but does not modify it.
---- Users must manually edit .weaverc.json files.
+--- Root detection: .weaveroot or .weaveroot.json defines project boundary.
+--- If not found, session cwd is used as fallback.
 ---
---- EXPERIMENTAL: This feature is disabled by default. Enable with:
----   require('neoweaver').setup({ metadata = { enabled = true } })
+--- For metadata extraction, see extractor.lua which collects fields from
+--- .weaverc.json, .weaveroot.json, and configured markers.
 ---
 ---@module 'neoweaver._internal.meta.weaverc'
 local M = {}
 
+local parsers = require("neoweaver._internal.meta.parsers")
+
 ---@class WeaverConfig
 ---@field project? string Project name (overrides auto-detection)
----@field collection_id? integer Default collection ID for notes created in this project
----@field note_type_id? integer Default note type ID for notes created in this project
----@field context? table<string, string> Additional project context (arbitrary key-value pairs)
----@field version? string Schema version (e.g., "1.0")
+---@field quicknotes? table Quicknotes configuration overrides
+---@field api? table API/server configuration overrides
+---@field [string] any Additional fields (treated as metadata by extractor)
 
 ---@class WeaverConfigCache
----@field data WeaverConfig|nil Parsed .weaverc.json data
+---@field data WeaverConfig|nil Parsed config data
 ---@field mtime number|nil File modification time (seconds since epoch)
----@field root_dir string|nil Project root directory
 
--- Cache for loaded .weaverc.json per project root
--- Structure: { [root_dir] = WeaverConfigCache }
+-- Cache for loaded config per path
+-- Structure: { [path] = WeaverConfigCache }
 ---@type table<string, WeaverConfigCache>
 local cache = {}
 
---- Find project root by walking up directory tree looking for .weaverc.json
---- Falls back to other common project markers if .weaverc.json not found
----
---- Priority order:
---- 1. .weaverc.json (primary marker)
---- 2. .git/ (git repository root)
---- 3. Common project files (package.json, go.mod, Cargo.toml, etc.)
----
+--- Find project root by walking up looking for .weaveroot or .weaveroot.json
 --- @param start_dir? string Starting directory (defaults to cwd)
---- @return string|nil root_dir Absolute path to project root, or nil if not found
+--- @return string root_dir Absolute path to project root (or start_dir if not found)
 function M.find_project_root(start_dir)
   start_dir = start_dir or vim.fn.getcwd()
-  local seen = {} -- Prevent infinite loops on symlinks
+  local seen = {}
+  local dir = start_dir
 
-  -- Project markers in priority order
-  local markers = {
-    ".weaverc.json", -- Primary marker
-    ".git", -- Git repository root
-    "package.json", -- Node.js/JavaScript projects
-    "go.mod", -- Go projects
-    "Cargo.toml", -- Rust projects
-    "pyproject.toml", -- Python projects
-    "composer.json", -- PHP projects
-  }
-
-  local function check_dir(dir)
-    -- Prevent infinite loops
-    if seen[dir] or dir == "/" then
-      return nil
-    end
+  while dir ~= "/" and not seen[dir] do
     seen[dir] = true
 
-    -- Check each marker
-    for _, marker in ipairs(markers) do
-      local path = dir .. "/" .. marker
-      if vim.uv.fs_stat(path) then
-        return dir
-      end
+    -- Check for .weaveroot (empty file) or .weaveroot.json
+    if vim.uv.fs_stat(dir .. "/.weaveroot") then
+      return dir
+    end
+    if vim.uv.fs_stat(dir .. "/.weaveroot.json") then
+      return dir
     end
 
-    -- Walk up to parent
     local parent = vim.fn.fnamemodify(dir, ":h")
     if parent == dir then
-      return nil -- Reached filesystem root
+      break
     end
-
-    return check_dir(parent)
+    dir = parent
   end
 
-  return check_dir(start_dir)
+  -- No .weaveroot found, use start_dir (cwd) as fallback
+  return start_dir
 end
 
---- Load .weaverc.json from project root
---- Returns cached result if file hasn't changed (mtime-based invalidation)
---- Returns nil if metadata extraction is disabled in config
+--- Load and merge config from .weaveroot.json and .weaverc.json
+--- Returns plugin configuration fields from both files (merged).
 ---
---- @param root_dir? string Project root directory (defaults to auto-detected root)
---- @return WeaverConfig|nil config Parsed .weaverc.json, or nil if not found/invalid/disabled
-function M.load(root_dir)
-  -- Check if metadata extraction is enabled
-  local config = require("neoweaver._internal.config")
-  if not config.get().metadata.enabled then
+--- @param start_dir? string Starting directory (defaults to cwd)
+--- @return WeaverConfig|nil config Merged config, or nil if no files found
+function M.load(start_dir)
+  start_dir = start_dir or vim.fn.getcwd()
+  local root_dir = M.find_project_root(start_dir)
+
+  local result = {}
+
+  -- Load .weaveroot.json first (if exists)
+  local weaveroot_path = root_dir .. "/.weaveroot.json"
+  local weaveroot_data = M._load_file(weaveroot_path)
+  if weaveroot_data then
+    result = vim.tbl_deep_extend("force", result, weaveroot_data)
+  end
+
+  -- Walk from start_dir to root_dir collecting .weaverc.json files
+  -- Deeper files override shallower ones
+  local weaverc_files = {}
+  local seen = {}
+  local dir = start_dir
+
+  while not seen[dir] do
+    seen[dir] = true
+    local weaverc_path = dir .. "/.weaverc.json"
+    if vim.uv.fs_stat(weaverc_path) then
+      table.insert(weaverc_files, weaverc_path)
+    end
+    if dir == root_dir then
+      break
+    end
+    local parent = vim.fn.fnamemodify(dir, ":h")
+    if parent == dir then
+      break
+    end
+    dir = parent
+  end
+
+  -- Process in reverse order (shallowest first, so deeper overrides)
+  for i = #weaverc_files, 1, -1 do
+    local weaverc_data = M._load_file(weaverc_files[i])
+    if weaverc_data then
+      result = vim.tbl_deep_extend("force", result, weaverc_data)
+    end
+  end
+
+  if vim.tbl_isempty(result) then
     return nil
   end
 
-  -- Auto-detect root if not provided
-  root_dir = root_dir or M.find_project_root()
+  return result
+end
 
-  if not root_dir then
-    return nil -- No project root found
-  end
-
-  local weaverc_path = root_dir .. "/.weaverc.json"
-  local stat = vim.uv.fs_stat(weaverc_path)
-
-  -- File doesn't exist
+--- Load and cache a single config file
+--- @param path string Absolute path to config file
+--- @return table|nil Parsed data or nil
+function M._load_file(path)
+  local stat = vim.uv.fs_stat(path)
   if not stat then
     -- Clear cache if file was deleted
-    if cache[root_dir] then
-      cache[root_dir] = nil
+    if cache[path] then
+      cache[path] = nil
     end
     return nil
   end
 
   -- Check cache validity
-  local cached = cache[root_dir]
+  local cached = cache[path]
   if cached and cached.mtime == stat.mtime.sec then
-    return vim.deepcopy(cached.data) -- Return copy to prevent mutation
+    return vim.deepcopy(cached.data)
   end
 
-  -- Load and parse file
-  local content = vim.fn.readfile(weaverc_path)
-  if not content or #content == 0 then
-    vim.notify(string.format("[weaverc] Empty file: %s", weaverc_path), vim.log.levels.WARN)
-    return nil
-  end
-
-  local content_str = table.concat(content, "\n")
-  local ok, decoded = pcall(vim.json.decode, content_str)
-
-  if not ok then
-    vim.notify(string.format("[weaverc] Invalid JSON in %s: %s", weaverc_path, tostring(decoded)), vim.log.levels.ERROR)
-    return nil
-  end
-
-  -- Validate decoded data is a table
-  if type(decoded) ~= "table" then
-    vim.notify(
-      string.format("[weaverc] Expected object in %s, got %s", weaverc_path, type(decoded)),
-      vim.log.levels.ERROR
-    )
+  -- Parse file
+  local data = parsers.parse_json(path)
+  if not data then
     return nil
   end
 
   -- Update cache
-  cache[root_dir] = {
-    data = decoded,
+  cache[path] = {
+    data = data,
     mtime = stat.mtime.sec,
-    root_dir = root_dir,
   }
 
-  return vim.deepcopy(decoded)
+  return vim.deepcopy(data)
 end
 
---- Clear cache for a specific project root or all cached data
+--- Clear cache for a specific path or all cached data
 --- Useful for testing or manual refresh
 ---
---- @param root_dir? string Project root to clear (if nil, clears all cache)
-function M.clear_cache(root_dir)
-  if root_dir then
-    cache[root_dir] = nil
+--- @param path? string Path to clear (if nil, clears all cache)
+function M.clear_cache(path)
+  if path then
+    cache[path] = nil
   else
     cache = {}
   end

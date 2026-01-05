@@ -10,3 +10,6 @@
 dist/
 *.zip
 *.tar.gz
+
+# neoweaver config files
+.weave*.*
