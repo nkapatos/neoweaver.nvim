@@ -3,9 +3,6 @@
 /deps/
 /.task/
 
-# Generated documentation (entire directory)
-/doc/
-
 # Plugin packaging artifacts
 dist/
 *.zip
