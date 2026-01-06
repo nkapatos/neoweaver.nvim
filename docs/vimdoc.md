@@ -26,10 +26,10 @@ docs/keymaps.md
 
 For detailed API documentation including function signatures, parameters, and types, see the `neoweaver_api.txt` help file:
 
-- `:help M.setup()` - Plugin configuration
-- `:help M.ensure_ready()` - Initialization entry point
-- `:help M.get_config()` - Get current configuration
-- `:help M.get_explorer()` - Get explorer instance
+- `:help neoweaver.setup()` - Plugin configuration
+- `:help neoweaver.ensure_ready()` - Initialization entry point
+- `:help neoweaver.get_config()` - Get current configuration
+- `:help neoweaver.get_explorer()` - Get explorer instance
 
 # See Also
 
