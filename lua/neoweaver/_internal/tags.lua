@@ -1,7 +1,4 @@
----
---- tags.lua - Tag management for Neoweaver (v3)
---- Handles tag listing (read-only)
----
+--- Tag management (read-only listing)
 local api = require("neoweaver._internal.api")
 
 local M = {}
@@ -26,7 +23,6 @@ function M.list_tags(opts, cb)
 
     local tags = res.data.tags or {}
 
-    -- Normalize string IDs to numbers (protobuf int64 serializes as strings in JSON)
     for _, tag in ipairs(tags) do
       tag.id = tonumber(tag.id)
     end

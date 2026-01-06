@@ -1,4 +1,4 @@
---- picker/configs.lua - Keymap configurations for different hosts
+--- Keymap configurations for picker hosts
 
 local M = {}
 

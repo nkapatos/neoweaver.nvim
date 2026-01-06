@@ -1,4 +1,4 @@
---- picker/manager.lua - Global registry for ViewSources and Picker instances
+--- Global registry for ViewSources and Picker instances
 
 local picker_mod = require("neoweaver._internal.picker")
 local configs = require("neoweaver._internal.picker.configs")

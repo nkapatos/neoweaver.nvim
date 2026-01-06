@@ -1,14 +1,13 @@
 local M = {}
 local curl = require("plenary.curl")
 
--- SSE connection state
 local sse_state = {
-  job = nil, -- plenary job handle
-  buffer = "", -- incomplete chunk buffer
-  last_event_id = nil, -- for reconnection support
-  last_heartbeat = nil, -- timestamp of last heartbeat (for future health monitoring)
-  status = "disconnected", -- "disconnected" | "connecting" | "connected"
-  session_id = nil, -- assigned by server on SSE connect, used to filter self-originated events
+  job = nil,
+  buffer = "",
+  last_event_id = nil,
+  last_heartbeat = nil,
+  status = "disconnected", ---@type "disconnected"|"connecting"|"connected"
+  session_id = nil,
 }
 
 ---@class ConnectError Connect RPC error format
@@ -24,8 +23,8 @@ local sse_state = {
 M.config = {
   servers = {},
   current_server = nil,
-  debug_info = true, -- Can be toggled independently with :MwToggleDebug
-  auto_connect_events = true, -- Auto-connect to SSE on first successful API call
+  debug_info = true,
+  auto_connect_events = true,
 }
 
 local function normalize_servers(servers)
@@ -102,13 +101,10 @@ function M.setup(opts)
   end
 end
 
----Centralized API request handler for Connect RPC
----Connect RPC returns the proto message directly (no {"data": ...} wrapper for success)
----Errors are returned as {"code": "...", "message": "...", "details": [...]}
----@param method string Semantic HTTP method ("GET", "POST", "PUT", "DELETE") - all become POST
----@param endpoint string Connect RPC endpoint (e.g., "/mind.v3.NotesService/GetNote")
----@param opts table Request options (body, headers)
----@param cb fun(res: ApiResponse) Callback function
+---@param method string HTTP method (semantic only - all requests use POST)
+---@param endpoint string Connect RPC endpoint
+---@param opts table Request options
+---@param cb fun(res: ApiResponse)
 local function get_current_server_url()
   local name = M.config.current_server
   if not name or name == "" then
@@ -124,14 +120,9 @@ local function get_current_server_url()
 end
 
 --- Parse SSE events from buffered data
---- SSE format:
----   id: 42
----   event: note
----   data: {"type":"updated","entity_id":123,"ts":1735748041321}
----   <blank line>
----@param buffer string The accumulated buffer
----@return table[] events Array of parsed events {id, event, data}
----@return string remaining Unparsed data (incomplete event)
+---@param buffer string
+---@return table[] events
+---@return string remaining
 local function parse_sse_events(buffer)
   local events = {}
   local remaining = buffer
@@ -175,7 +166,6 @@ local function request(method, endpoint, opts, cb)
   local url = base_url .. endpoint
   opts = opts or {}
 
-  -- Inject session ID header if available (for SSE self-event filtering)
   if sse_state.session_id then
     opts.headers = opts.headers or {}
     opts.headers["X-Session-Id"] = sse_state.session_id
@@ -187,10 +177,8 @@ local function request(method, endpoint, opts, cb)
 
   opts.callback = function(res)
     vim.schedule(function()
-      -- Try to decode the response body
       local ok, res_body = pcall(vim.json.decode, res.body)
 
-      -- JSON Decoding has failed
       if not ok then
         cb({
           status = res.status,
@@ -200,30 +188,17 @@ local function request(method, endpoint, opts, cb)
       end
 
       if res.status >= 200 and res.status < 300 then
-        -- Success: Connect RPC returns proto message directly (not wrapped in {"data": ...})
-        cb({
-          status = res.status,
-          data = res_body,
-        })
+        cb({ status = res.status, data = res_body })
 
-        -- Auto-connect to SSE events on first successful API call
         if M.config.auto_connect_events and sse_state.status == "disconnected" then
           M.events.connect()
         end
       else
-        -- Error: Connect RPC format {"code": "...", "message": "...", "details": [...]}
-        local err = res_body or { code = "unknown", message = "unknown error" }
-        cb({
-          status = res.status,
-          error = err,
-        })
+        cb({ status = res.status, error = res_body or { code = "unknown", message = "unknown error" } })
       end
     end)
   end
 
-  -- Connect RPC always uses POST regardless of semantic method
-  -- We keep the method parameter for developer clarity (GET/PUT/DELETE semantics)
-  -- but all requests are actually POST under the hood
   local curl_fn = curl.post
 
   if M.config.debug_info then
@@ -242,12 +217,8 @@ end
 ---@field update fun(req: mind.v3.ReplaceNoteRequest, etag: string?, cb: fun(res: ApiResponse)) Update a note
 ---@field delete fun(req: mind.v3.DeleteNoteRequest, cb: fun(res: ApiResponse)) Delete a note
 
--- Notes Service
 ---@type NotesMethods
 M.notes = {
-  -- POST /mind.v3.NotesService/ListNotes
-  -- Request: mind.v3.ListNotesRequest
-  -- Response: mind.v3.ListNotesResponse
   list = function(req, cb)
     request("GET", "/mind.v3.NotesService/ListNotes", {
       body = vim.json.encode(req or {}),
@@ -255,9 +226,6 @@ M.notes = {
     }, cb)
   end,
 
-  -- POST /mind.v3.NotesService/GetNote
-  -- Request: mind.v3.GetNoteRequest
-  -- Response: mind.v3.Note
   get = function(req, cb)
     request("GET", "/mind.v3.NotesService/GetNote", {
       body = vim.json.encode(req),
@@ -265,9 +233,6 @@ M.notes = {
     }, cb)
   end,
 
-  -- POST /mind.v3.NotesService/CreateNote
-  -- Request: mind.v3.CreateNoteRequest
-  -- Response: mind.v3.Note
   create = function(req, cb)
     request("POST", "/mind.v3.NotesService/CreateNote", {
       body = vim.json.encode(req),
@@ -275,9 +240,6 @@ M.notes = {
     }, cb)
   end,
 
-  -- POST /mind.v3.NotesService/NewNote
-  -- Request: mind.v3.NewNoteRequest
-  -- Response: mind.v3.Note
   new = function(req, cb)
     request("POST", "/mind.v3.NotesService/NewNote", {
       body = vim.json.encode(req or {}),
@@ -285,9 +247,6 @@ M.notes = {
     }, cb)
   end,
 
-  -- POST /mind.v3.NotesService/FindNotes
-  -- Request: mind.v3.FindNotesRequest
-  -- Response: mind.v3.FindNotesResponse
   find = function(req, cb)
     request("POST", "/mind.v3.NotesService/FindNotes", {
       body = vim.json.encode(req or {}),
@@ -295,10 +254,6 @@ M.notes = {
     }, cb)
   end,
 
-  -- POST /mind.v3.NotesService/ReplaceNote
-  -- Request: mind.v3.ReplaceNoteRequest
-  -- Response: mind.v3.Note
-  -- Requires If-Match header with etag for optimistic locking
   update = function(req, etag, cb)
     request("PUT", "/mind.v3.NotesService/ReplaceNote", {
       body = vim.json.encode(req),
@@ -309,10 +264,6 @@ M.notes = {
     }, cb)
   end,
 
-  -- POST /mind.v3.NotesService/UpdateNote
-  -- Request: mind.v3.UpdateNoteRequest (partial update with field masking)
-  -- Response: mind.v3.Note
-  -- Requires If-Match header with etag for optimistic locking
   patch = function(req, etag, cb)
     request("POST", "/mind.v3.NotesService/UpdateNote", {
       body = vim.json.encode(req),
@@ -323,9 +274,6 @@ M.notes = {
     }, cb)
   end,
 
-  -- POST /mind.v3.NotesService/DeleteNote
-  -- Request: mind.v3.DeleteNoteRequest
-  -- Response: google.protobuf.Empty
   delete = function(req, cb)
     request("DELETE", "/mind.v3.NotesService/DeleteNote", {
       body = vim.json.encode(req),
@@ -334,11 +282,9 @@ M.notes = {
   end,
 }
 
--- Helper function to list notes by collection ID
--- Uses collectionId field in ListNotesRequest
----@param collection_id number The collection ID
----@param query? table Optional additional query parameters (pageSize, pageToken, etc.)
----@param cb fun(res: ApiResponse) Callback function
+---@param collection_id number
+---@param query? table
+---@param cb fun(res: ApiResponse)
 M.list_notes_by_collection = function(collection_id, query, cb)
   local req = vim.tbl_extend("force", query or {}, {
     collectionId = collection_id,
@@ -353,12 +299,8 @@ end
 ---@field update fun(req: mind.v3.UpdateCollectionRequest, cb: fun(res: ApiResponse)) Update a collection
 ---@field delete fun(req: mind.v3.DeleteCollectionRequest, cb: fun(res: ApiResponse)) Delete a collection
 
--- Collections Service
 ---@type CollectionsMethods
 M.collections = {
-  -- POST /mind.v3.CollectionsService/ListCollections
-  -- Request: mind.v3.ListCollectionsRequest
-  -- Response: mind.v3.ListCollectionsResponse (contains collections array and totalSize)
   list = function(req, cb)
     request("GET", "/mind.v3.CollectionsService/ListCollections", {
       body = vim.json.encode(req or {}),
@@ -366,9 +308,6 @@ M.collections = {
     }, cb)
   end,
 
-  -- POST /mind.v3.CollectionsService/GetCollection
-  -- Request: mind.v3.GetCollectionRequest
-  -- Response: mind.v3.Collection
   get = function(req, cb)
     request("GET", "/mind.v3.CollectionsService/GetCollection", {
       body = vim.json.encode(req),
@@ -376,9 +315,6 @@ M.collections = {
     }, cb)
   end,
 
-  -- POST /mind.v3.CollectionsService/CreateCollection
-  -- Request: mind.v3.CreateCollectionRequest
-  -- Response: mind.v3.Collection
   create = function(req, cb)
     request("POST", "/mind.v3.CollectionsService/CreateCollection", {
       body = vim.json.encode(req),
@@ -386,9 +322,6 @@ M.collections = {
     }, cb)
   end,
 
-  -- POST /mind.v3.CollectionsService/UpdateCollection
-  -- Request: mind.v3.UpdateCollectionRequest
-  -- Response: mind.v3.Collection
   update = function(req, cb)
     request("PUT", "/mind.v3.CollectionsService/UpdateCollection", {
       body = vim.json.encode(req),
@@ -396,9 +329,6 @@ M.collections = {
     }, cb)
   end,
 
-  -- POST /mind.v3.CollectionsService/DeleteCollection
-  -- Request: mind.v3.DeleteCollectionRequest
-  -- Response: google.protobuf.Empty
   delete = function(req, cb)
     request("DELETE", "/mind.v3.CollectionsService/DeleteCollection", {
       body = vim.json.encode(req),
@@ -410,12 +340,8 @@ M.collections = {
 ---@class TagsMethods Tags service methods
 ---@field list fun(req: mind.v3.ListTagsRequest, cb: fun(res: ApiResponse)) List tags
 
--- Tags Service
 ---@type TagsMethods
 M.tags = {
-  -- POST /mind.v3.TagsService/ListTags
-  -- Request: mind.v3.ListTagsRequest
-  -- Response: mind.v3.ListTagsResponse
   list = function(req, cb)
     request("GET", "/mind.v3.TagsService/ListTags", {
       body = vim.json.encode(req or {}),
@@ -456,10 +382,9 @@ function M.toggle_debug()
   vim.notify("Debug logging: " .. (M.config.debug_info and "ON" or "OFF"), vim.log.levels.INFO)
 end
 
--- SSE Events API
+-- SSE Events
 M.events = {}
 
--- Event type constants for type safety
 M.events.types = {
   NOTE = "note",
   COLLECTION = "collection",
@@ -467,23 +392,17 @@ M.events.types = {
   SYSTEM = "system",
 }
 
--- Subscriber registry: { [domain]: { callback, ... } }
-local event_subscribers = {}
+local event_subscribers = {} -- { [domain]: { callback, ... } }
 
---- Subscribe to domain events
---- Returns an unsubscribe function that MUST be called on cleanup to prevent memory leaks.
---- Store the returned function and call it when the subscriber is torn down (e.g., buffer close).
----
---- @param domains string|string[] Domain type(s) to listen for (use api.events.types.*)
---- @param callback fun(event: SSEEvent) Called when matching event received
---- @return fun() unsubscribe Call to remove subscription
+--- Subscribe to domain events. Returns unsubscribe function (call on cleanup).
+---@param domains string|string[]
+---@param callback fun(event: table)
+---@return fun() unsubscribe
 function M.events.on(domains, callback)
-  -- Normalize to array
   if type(domains) == "string" then
     domains = { domains }
   end
 
-  -- Register callback for each domain
   for _, domain in ipairs(domains) do
     if not event_subscribers[domain] then
       event_subscribers[domain] = {}
@@ -491,7 +410,6 @@ function M.events.on(domains, callback)
     table.insert(event_subscribers[domain], callback)
   end
 
-  -- Return unsubscribe function
   return function()
     for _, domain in ipairs(domains) do
       local subs = event_subscribers[domain]
@@ -507,16 +425,14 @@ function M.events.on(domains, callback)
   end
 end
 
---- Dispatch event to all subscribers for the event's domain
---- Skips events that originated from this session (self-event filtering)
---- @param event table Parsed SSE event { event = "domain", data = {...}, id = "..." }
+--- Dispatch event to subscribers, skipping self-originated events
+---@param event table
 local function dispatch_event(event)
   local domain = event.event
   if not domain then
     return
   end
 
-  -- Skip events originated from this session
   if event.data and event.data.origin_session_id and event.data.origin_session_id == sse_state.session_id then
     if M.config.debug_info then
       vim.notify("SSE: Skipping self-originated event: " .. domain, vim.log.levels.DEBUG)
@@ -529,7 +445,6 @@ local function dispatch_event(event)
     return
   end
 
-  -- TODO: Consider debouncing refresh calls if multiple events arrive rapidly
   for _, callback in ipairs(subs) do
     local ok, err = pcall(callback, event)
     if not ok then
@@ -560,12 +475,8 @@ function M.events.connect()
       ["Accept"] = "text/event-stream",
       ["Cache-Control"] = "no-cache",
     },
-    -- Disable curl's output buffering so SSE events are delivered immediately.
-    -- Without -N, curl buffers output and the stream callback never fires.
-    raw = { "-N" },
-    -- NOTE: plenary.curl's stream callback receives data line-by-line with newlines stripped.
-    -- SSE spec uses "\n\n" as event separator, so we must reconstruct newlines when buffering.
-    -- See plenary/job.lua on_output() which splits on "\n" before invoking callbacks.
+    raw = { "-N" }, -- Disable curl buffering for SSE
+    -- NOTE: plenary.curl strips newlines. SSE uses "\n\n" as separator, so we reconstruct.
     stream = function(_, line)
       if line == nil then
         return
@@ -573,7 +484,6 @@ function M.events.connect()
 
       vim.schedule(function()
         local ok, cb_err = pcall(function()
-          -- First line means we're connected
           if sse_state.status == "connecting" then
             sse_state.status = "connected"
             if M.config.debug_info then
@@ -581,18 +491,15 @@ function M.events.connect()
             end
           end
 
-          -- Accumulate lines and reconstruct newlines (stripped by plenary)
           sse_state.buffer = sse_state.buffer .. line .. "\n"
           local events, remaining = parse_sse_events(sse_state.buffer)
           sse_state.buffer = remaining
 
-          -- Process parsed events
           for _, event in ipairs(events) do
             if event.id then
               sse_state.last_event_id = event.id
             end
 
-            -- Handle system events
             if event.event == "system" and event.data then
               if event.data.type == "connected" and event.data.session_id then
                 sse_state.session_id = event.data.session_id
@@ -604,7 +511,6 @@ function M.events.connect()
               end
             end
 
-            -- Log events when debug is enabled
             if M.config.debug_info then
               vim.notify(
                 string.format("SSE Event: %s - %s", event.event or "unknown", vim.inspect(event.data)),
@@ -612,7 +518,6 @@ function M.events.connect()
               )
             end
 
-            -- Dispatch to subscribers
             dispatch_event(event)
           end
         end)
@@ -659,18 +564,15 @@ function M.events.disconnect()
   end
 end
 
---- Get current SSE connection status
----@return string status "disconnected" | "connecting" | "connected"
+---@return "disconnected"|"connecting"|"connected"
 function M.events.status()
   return sse_state.status
 end
 
--- Health check API
 M.health = {}
 
---- Ping the health endpoint of a server
---- @param server_name string|nil Server name to ping (nil = current server)
---- @param callback fun(result: {ok: boolean, error: string?}) Result callback
+---@param server_name string|nil Server name (nil = current server)
+---@param callback fun(result: {ok: boolean, error: string?})
 function M.health.ping(server_name, callback)
   local server_url
   if server_name then

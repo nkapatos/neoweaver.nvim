@@ -1,9 +1,4 @@
----
---- quicknote.lua - Ephemeral quicknote capture
----
---- Quicknotes are short-lived floating buffers used for rapid capture.
---- They create notes server-side only when content exists on close.
----
+--- Ephemeral quicknote capture - creates notes on close if content exists
 local Popup = require("nui.popup")
 local event = require("nui.utils.autocmd").event
 
@@ -17,9 +12,7 @@ local state = {
   popup = nil,
   closing = false,
   saved_buffers = {},
-  -- Store the entire most recent quicknote for amend functionality
-  -- This avoids a server fetch when amending
-  recent_quicknote = nil, -- Will store the full note object { id, etag, title, body, ... }
+  recent_quicknote = nil,
 }
 
 local function get_config()
@@ -28,7 +21,6 @@ local function get_config()
   return vim.tbl_deep_extend("force", {
     title_template = "%Y%m%d%H%M",
     collection_id = 2,
-    -- Note: Make note type configurable - See issue #13
     note_type_id = 2,
     popup = {
       relative = "editor",
@@ -112,16 +104,12 @@ local function save_if_needed(bufnr)
   vim.b[bufnr].neoweaver_quicknote_saved = true
 
   local cfg = get_config()
-
-  -- Extract auto-metadata (project context, git info, etc.)
   local extracted_meta = meta.load_metadata()
 
-  -- Check if this is an amend operation (existing note with id)
   local note_id = vim.b[bufnr].neoweaver_quicknote_id
   local note_etag = vim.b[bufnr].neoweaver_quicknote_etag
 
   if note_id and note_etag then
-    -- Update existing quicknote
     ---@type mind.v3.ReplaceNoteRequest
     local payload = {
       id = note_id,
@@ -142,7 +130,6 @@ local function save_if_needed(bufnr)
         return
       end
 
-      -- Store the entire updated note in local state for next amend
       state.recent_quicknote = res.data
 
       if state.popup and state.popup.border then
@@ -152,7 +139,6 @@ local function save_if_needed(bufnr)
       vim.notify("Quicknote updated", vim.log.levels.INFO)
     end)
   else
-    -- Create new quicknote
     local title = vim.fn.strftime(cfg.title_template or "%Y%m%d%H%M")
 
     ---@type mind.v3.CreateNoteRequest
@@ -173,7 +159,6 @@ local function save_if_needed(bufnr)
         return
       end
 
-      -- Store the entire saved note in local state for amend functionality
       state.recent_quicknote = res.data
 
       if state.popup and state.popup.border then
@@ -233,14 +218,11 @@ function M.open()
 
   local popup = create_popup()
   popup:mount()
-
-  -- Update the title to show the generated note title
   popup.border:set_text("top", " " .. title .. " ", "center")
 
   vim.api.nvim_buf_set_name(popup.bufnr, "Quicknote")
   vim.api.nvim_buf_set_lines(popup.bufnr, 0, -1, false, {})
 
-  -- Clear buffer-local state for new quicknote
   vim.b[popup.bufnr].neoweaver_quicknote_saved = nil
   vim.b[popup.bufnr].neoweaver_quicknote_id = nil
   vim.b[popup.bufnr].neoweaver_quicknote_etag = nil
@@ -248,38 +230,29 @@ function M.open()
   popup.border:set_text("bottom", "", "center")
 
   state.popup = popup
-
-  -- Enter insert mode
   vim.cmd("startinsert")
 end
 
 function M.amend()
-  -- Check if there's a recent quicknote to amend
   if not state.recent_quicknote or not state.recent_quicknote.id then
     vim.notify("No recent quicknote to amend. Creating a new one.", vim.log.levels.INFO)
     return M.open()
   end
 
-  -- Close existing popup if open
   if state.popup then
     close_popup(state.popup)
   end
 
-  -- Use locally stored note content (no server fetch needed!)
   local note = state.recent_quicknote
 
   local popup = create_popup()
   popup:mount()
-
-  -- Update title to show we're amending
   popup.border:set_text("top", " " .. note.title .. " (amend) ", "center")
 
-  -- Load note content from local state
   local lines = vim.split(note.body or "", "\n")
   vim.api.nvim_buf_set_name(popup.bufnr, "Quicknote (amend)")
   vim.api.nvim_buf_set_lines(popup.bufnr, 0, -1, false, lines)
 
-  -- Set buffer-local state for amend operation
   vim.b[popup.bufnr].neoweaver_quicknote_saved = nil
   vim.b[popup.bufnr].neoweaver_quicknote_id = note.id
   vim.b[popup.bufnr].neoweaver_quicknote_etag = note.etag
@@ -287,8 +260,6 @@ function M.amend()
   popup.border:set_text("bottom", "", "center")
 
   state.popup = popup
-
-  -- Enter insert mode at end of buffer
   vim.cmd("startinsert")
 end
 

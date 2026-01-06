@@ -106,3 +106,12 @@ Neoweaver provides commands for managing notes, quicknotes, collections, and ser
 " Toggle debug logging
 :NeoweaverToggleDebug
 ```
+
+## Conflict Resolution
+
+When saving a note and the server version has changed (412 Precondition Failed), a diff overlay appears showing conflicts between your local changes and the server version.
+
+Use `]c`/`[c` to navigate conflicts, then `gh` (accept server), `gl` (keep local), or `gb` (keep both) to resolve. Save with `:w` to retry.
+
+See [Keymaps](keymaps.md#conflict-resolution-keymaps) for the full keybinding reference.
+

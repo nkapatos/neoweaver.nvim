@@ -1,18 +1,13 @@
----
---- notes.lua - Note management for Neoweaver (v3)
---- Handles note listing, opening, editing, and saving
+--- Note management - listing, opening, editing, and saving
 local api = require("neoweaver._internal.api")
 local buffer_manager = require("neoweaver._internal.buffer.manager")
 local diff = require("neoweaver._internal.diff")
 local meta = require("neoweaver._internal.meta")
 
--- Debounce state for create_note
 local last_create_time = 0
 local DEBOUNCE_MS = 500
-
 local allow_multiple_empty_notes = false
 
--- Note: ConnectCode enum temporary - See issue #6
 local ConnectCode = {
   OK = "ok",
   CANCELLED = "cancelled",
@@ -23,7 +18,7 @@ local ConnectCode = {
   ALREADY_EXISTS = "already_exists",
   PERMISSION_DENIED = "permission_denied",
   RESOURCE_EXHAUSTED = "resource_exhausted",
-  FAILED_PRECONDITION = "failed_precondition", -- Your ETag case
+  FAILED_PRECONDITION = "failed_precondition",
   ABORTED = "aborted",
   OUT_OF_RANGE = "out_of_range",
   UNIMPLEMENTED = "unimplemented",
@@ -34,15 +29,11 @@ local ConnectCode = {
 }
 
 local M = {}
-
--- Forward declarations
 local handle_conflict
 
---- Open a note in a buffer (internal helper)
---- Creates buffer via buffer_manager and sets all note-related buffer variables
----@param note table Note data from API response
----@param opts? { body?: string, modified?: boolean } Optional overrides
----@return integer bufnr The buffer number
+---@param note table
+---@param opts? { body?: string, modified?: boolean }
+---@return integer bufnr
 local function open_note_buffer(note, opts)
   opts = opts or {}
   local note_id = tonumber(note.id)
@@ -55,27 +46,21 @@ local function open_note_buffer(note, opts)
     modifiable = true,
   })
 
-  -- Set buffer content
   local body = opts.body or note.body or ""
   local lines = vim.split(body, "\n")
   vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
   vim.api.nvim_set_option_value("modified", opts.modified or false, { buf = bufnr })
 
-  -- Set buffer-local note metadata
   vim.b[bufnr].note_id = note_id
   vim.b[bufnr].note_title = note.title
   vim.b[bufnr].note_etag = note.etag
   vim.b[bufnr].note_collection_id = note.collectionId
   vim.b[bufnr].note_type_id = note.noteTypeId
-  -- DEPRECATED: note_metadata is from old design where metadata was stored on note object
-  -- Server now handles frontmatter (in body) and auto-metadata (sent via metadata field) separately
-  -- This field will be removed in a future version
-  vim.b[bufnr].note_metadata = note.metadata or {}
+  vim.b[bufnr].note_metadata = note.metadata or {} -- DEPRECATED: will be removed
 
   return bufnr
 end
 
---- Handle ETag conflict by showing diff and resolving
 ---@param bufnr integer
 ---@param note_id integer
 handle_conflict = function(bufnr, note_id)
@@ -147,8 +132,6 @@ handle_conflict = function(bufnr, note_id)
 end
 
 --- Create a new note with server-generated title (NewNote endpoint)
---- Server generates title as "Untitled N" where N is incremental
---- Opens the note buffer immediately after creation
 function M.new_note()
   local now = vim.loop.now()
   if not allow_multiple_empty_notes and (now - last_create_time < DEBOUNCE_MS) then
@@ -182,12 +165,10 @@ function M.new_note()
 end
 
 --- Create a note with client-provided title (CreateNote endpoint)
---- Opens the note buffer immediately after creation
----@param title string The note title
----@param collection_id number The collection ID to create the note in
----@param callback? fun(note: table) Optional callback after note is created and buffer opened
+---@param title string
+---@param collection_id number
+---@param callback? fun(note: table)
 function M.create_note(title, collection_id, callback)
-  -- Extract auto-metadata (project context, git info, etc.)
   local extracted_meta = meta.load_metadata()
 
   ---@type mind.v3.CreateNoteRequest
@@ -216,7 +197,7 @@ function M.create_note(title, collection_id, callback)
   end)
 end
 
---- Open a note in a buffer for editing
+--- Open a note in a buffer
 ---@param note_id integer
 function M.open_note(note_id)
   if not note_id then
@@ -243,12 +224,12 @@ function M.open_note(note_id)
   end)
 end
 
---- Edit note metadata (placeholder)
+--- Edit note metadata (not yet implemented)
 function M.edit_metadata()
-  vim.notify("Metadata editing not yet implemented in v3 - See issue #15", vim.log.levels.WARN)
+  vim.notify("Metadata editing not yet implemented - See issue #15", vim.log.levels.WARN)
 end
 
---- Edit the current note title and persist immediately
+--- Edit the current note title
 function M.edit_title()
   local bufnr = vim.api.nvim_get_current_buf()
   local entity = buffer_manager.get_entity(bufnr)
@@ -286,7 +267,6 @@ function M.edit_title()
   end)
 end
 
---- Save note buffer content to server
 ---@param bufnr integer
 ---@param id integer
 function M.save_note(bufnr, id)
@@ -298,7 +278,6 @@ function M.save_note(bufnr, id)
   local collection_id = vim.b[bufnr].note_collection_id or 1
   local note_type_id = vim.b[bufnr].note_type_id
 
-  -- Extract auto-metadata (project context, git info, etc.)
   local extracted_meta = meta.load_metadata()
 
   ---@type mind.v3.ReplaceNoteRequest
@@ -368,8 +347,7 @@ function M.delete_note(note_id)
   end)
 end
 
---- Find notes by title using interactive search picker
---- See issue #24 for reimplementation with new picker architecture
+--- Find notes by title (pending picker refactor - See issue #24)
 function M.find_notes()
   vim.notify("find_notes() disabled - pending picker refactor (see #24)", vim.log.levels.WARN)
 end

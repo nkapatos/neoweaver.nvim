@@ -1,4 +1,4 @@
---- picker/types.lua - Type definitions for ViewSource and PickerConfig
+--- Type definitions for ViewSource and PickerConfig
 
 ---@class ViewSource
 ---@field name string

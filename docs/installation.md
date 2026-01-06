@@ -69,40 +69,8 @@ use {
 }
 ```
 
-## Keymaps
-
-Neoweaver does not set any keymaps by default. Copy the keymaps you want to your configuration:
-
-```lua
--- Notes
-vim.keymap.set("n", "<leader>nl", "<cmd>NeoweaverNotesList<cr>", { desc = "List notes" })
-vim.keymap.set("n", "<leader>nn", "<cmd>NeoweaverNotesNew<cr>", { desc = "New note" })
-vim.keymap.set("n", "<leader>nN", "<cmd>NeoweaverNotesNewWithTitle<cr>", { desc = "New note with title" })
-vim.keymap.set("n", "<leader>nt", "<cmd>NeoweaverNotesTitle<cr>", { desc = "Edit note title" })
-
--- Quicknotes
-vim.keymap.set("n", "<leader>qn", "<cmd>NeoweaverNotesQuick<cr>", { desc = "Quick note" })
-vim.keymap.set("n", "<leader>qa", "<cmd>NeoweaverNotesQuickAmend<cr>", { desc = "Amend quicknote" })
-
--- Explorer
-vim.keymap.set("n", "<leader>ne", "<cmd>NeoweaverExplorer<cr>", { desc = "Toggle explorer" })
-```
-
-For lazy.nvim users, you can use the `keys` table for lazy-loading on keypress:
-
-```lua
-{
-  "nkapatos/neoweaver.nvim",
-  keys = {
-    { "<leader>nl", "<cmd>NeoweaverNotesList<cr>", desc = "List notes" },
-    { "<leader>nn", "<cmd>NeoweaverNotesNew<cr>", desc = "New note" },
-    -- add more as needed
-  },
-  -- ... rest of config
-}
-```
-
 ## Next Steps
 
+- See [Keymaps](keymaps.md) for suggested keymaps and built-in mappings
 - See [Commands](commands.md) for the full list of available commands
 - See [Configuration](configuration.md) for all configuration options

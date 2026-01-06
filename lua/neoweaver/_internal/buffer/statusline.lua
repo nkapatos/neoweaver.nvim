@@ -1,14 +1,13 @@
+--- Buffer statusline - server context and entity info
 ---@class BufferStatusline
----Buffer statusline management for entity buffers
----Displays server context and entity information
 
 local api = require("neoweaver._internal.api")
 local buffer_manager = require("neoweaver._internal.buffer.manager")
 
 local M = {}
 
---- Get formatted statusline for an entity buffer
----@param bufnr integer Buffer number
+--- Get formatted statusline
+---@param bufnr integer
 ---@return string
 function M.get_status(bufnr)
   -- Get entity info
@@ -17,14 +16,12 @@ function M.get_status(bufnr)
     return "Neoweaver"
   end
 
-  -- Get server info
   local server_name = api.config.current_server or "No Server"
   local server_url = ""
   if api.config.current_server and api.config.servers[api.config.current_server] then
     server_url = api.config.servers[api.config.current_server].url
   end
 
-  -- Build status line
   local parts = {}
 
   -- Server context
@@ -33,7 +30,6 @@ function M.get_status(bufnr)
     table.insert(parts, string.format("(%s)", server_url))
   end
 
-  -- Entity info
   table.insert(parts, "|")
   if entity.type == "note" then
     table.insert(parts, string.format("󰈙 Note #%s", tostring(entity.id)))
@@ -44,9 +40,9 @@ function M.get_status(bufnr)
   return table.concat(parts, " ")
 end
 
---- Setup statusline for a buffer window
----@param bufnr integer Buffer number
----@param winid integer Window ID
+--- Setup statusline for buffer window
+---@param bufnr integer
+---@param winid integer
 function M.setup(bufnr, winid)
   -- Use window-local statusline with Lua callback
   vim.wo[winid].statusline =

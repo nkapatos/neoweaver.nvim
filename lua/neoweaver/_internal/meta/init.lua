@@ -1,18 +1,5 @@
----
---- init.lua - Public API for metadata extraction module
----
---- Main entry point for loading project metadata from .weaveroot.json
---- and auto-detected runtime context (cwd, git info, etc.).
----
---- .weaveroot.json `meta` key provides project-level identity.
---- .weaverc.json is for plugin settings only, not metadata.
----
---- Auto-detected fields: project, project_root, cwd, commit_hash, git_branch
----
---- Usage:
----   local meta = require('neoweaver._internal.meta')
----   local data = meta.load() -- Load complete metadata
----
+--- Public API for metadata extraction
+--- Loads project metadata from .weaveroot.json and auto-detected context
 ---@module 'neoweaver._internal.meta'
 local M = {}
 
@@ -24,16 +11,13 @@ local extractor = require("neoweaver._internal.meta.extractor")
 ---@field meta? ProjectMetadata Extracted project metadata
 ---@field [string] any Merged fields from both sources
 
---- Load complete metadata (plugin config + extracted metadata)
----
---- @param start_dir? string Starting directory (defaults to cwd)
---- @return MergedMetadata|nil Complete metadata or nil if nothing found
+--- Load complete metadata (config + extracted)
+--- @param start_dir? string
+--- @return MergedMetadata|nil
 function M.load(start_dir)
-  -- Load both sources
   local config_data = weaverc.load(start_dir)
   local meta_data = extractor.extract_metadata(start_dir)
 
-  -- Return nil if nothing was found
   if not config_data and not meta_data then
     return nil
   end
@@ -44,37 +28,35 @@ function M.load(start_dir)
   }
 end
 
---- Load only .weaverc.json/.weaveroot.json plugin configuration
---- @param start_dir? string Starting directory (defaults to cwd)
---- @return WeaverConfig|nil Config data or nil if not found
+--- Load only plugin configuration
+--- @param start_dir? string
+--- @return WeaverConfig|nil
 function M.load_config(start_dir)
   return weaverc.load(start_dir)
 end
 
 --- Load only extracted project metadata
---- @param start_dir? string Starting directory (defaults to cwd)
---- @return ProjectMetadata|nil Project metadata or nil if not found
+--- @param start_dir? string
+--- @return ProjectMetadata|nil
 function M.load_metadata(start_dir)
   return extractor.extract_metadata(start_dir)
 end
 
---- Find project root directory
---- Looks for .weaveroot or .weaveroot.json, falls back to cwd
---- @param start_dir? string Starting directory (defaults to cwd)
---- @return string root_dir Absolute path to project root (never nil)
+--- Find project root (.weaveroot/.weaveroot.json, fallback to cwd)
+--- @param start_dir? string
+--- @return string
 function M.find_project_root(start_dir)
   return weaverc.find_project_root(start_dir)
 end
 
---- Clear all metadata caches
---- Useful for testing or manual refresh
+--- Clear all caches
 function M.clear_cache()
   weaverc.clear_cache()
   extractor.clear_cache()
 end
 
---- Get current cache state (for debugging/inspection)
---- @return table Cache contents from both weaverc and extractor
+--- Get cache state (for debugging)
+--- @return table
 function M._get_cache()
   return {
     weaverc = weaverc._get_cache(),
