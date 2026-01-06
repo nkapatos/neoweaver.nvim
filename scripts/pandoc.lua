@@ -1,9 +1,39 @@
 ---@diagnostic disable: undefined-global
 --- Pandoc filter for vimdoc preprocessing (runs before panvimdoc.lua)
---- Injects header with license info, removes markdown emphasis
+--- - Converts internal markdown links to vimdoc tags
+--- - Injects header with license info
+--- - Removes markdown emphasis
 
 local stringify = pandoc.utils.stringify
 local date = os.date("%Y-%m-%d")
+
+--- Convert internal .md links to vimdoc tags
+--- [Keymaps](keymaps.md) -> |neoweaver-keymaps|
+--- [Keymaps](keymaps.md#section) -> |neoweaver-keymaps-section|
+---@param el pandoc.Link
+---@return pandoc.Str|nil
+local function convert_internal_links(el)
+  local target = el.target
+
+  -- Only convert internal .md links
+  if not target:match("%.md") then
+    return nil -- Keep external links as-is
+  end
+
+  -- Extract filename and optional anchor
+  local file, anchor = target:match("^(.-)%.md(#?.*)$")
+  if not file then
+    return nil
+  end
+
+  -- Build tag: neoweaver-{file} or neoweaver-{file}-{anchor}
+  local tag = "neoweaver-" .. file
+  if anchor and anchor ~= "" then
+    tag = tag .. anchor:gsub("^#", "-")
+  end
+
+  return pandoc.Str("|" .. tag .. "|")
+end
 
 ---@param el pandoc.Emph|pandoc.Strong
 ---@return pandoc.Str
@@ -78,6 +108,7 @@ end
 
 return {
   {
+    Link = convert_internal_links,
     Emph = remove_emphasis,
     Strong = remove_emphasis,
   },

@@ -143,6 +143,7 @@ jobs:
 
       - name: Generate documentation
         run: |
+          mkdir -p doc
           task docs:gen:panvimdoc
           task docs:api
           task docs:tags

@@ -56,6 +56,7 @@ These keymaps are active in the explorer sidebar:
 ### Create Convention
 
 When pressing `a` to create:
+
 - `meeting notes` creates a **note** named "meeting notes"
 - `projects/` creates a **collection** named "projects"
 
