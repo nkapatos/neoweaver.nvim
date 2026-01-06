@@ -1,8 +1,11 @@
 --- Note management - listing, opening, editing, and saving
 local api = require("neoweaver._internal.api")
+local events = require("neoweaver._internal.events")
 local buffer_manager = require("neoweaver._internal.buffer.manager")
 local diff = require("neoweaver._internal.diff")
 local meta = require("neoweaver._internal.meta")
+
+local ORIGIN = "buffer"
 
 local last_create_time = 0
 local DEBOUNCE_MS = 500
@@ -161,6 +164,11 @@ function M.new_note()
     local note = res.data
     open_note_buffer(note, { body = "", modified = allow_multiple_empty_notes })
     vim.notify("Note created: " .. note.title, vim.log.levels.INFO)
+
+    events.emit(events.types.NOTE, {
+      action = "created",
+      note = { id = note.id, title = note.title, collectionId = note.collectionId },
+    }, { origin = ORIGIN })
   end)
 end
 
@@ -190,6 +198,11 @@ function M.create_note(title, collection_id, callback)
     local note = res.data
     open_note_buffer(note, { body = "" })
     vim.notify("Note created: " .. note.title, vim.log.levels.INFO)
+
+    events.emit(events.types.NOTE, {
+      action = "created",
+      note = { id = note.id, title = note.title, collectionId = note.collectionId },
+    }, { origin = ORIGIN })
 
     if callback then
       callback(note)
@@ -311,6 +324,11 @@ function M.save_note(bufnr, id)
     vim.b[bufnr].note_etag = updated_note.etag
     vim.api.nvim_set_option_value("modified", false, { buf = bufnr })
     vim.notify("Note saved successfully", vim.log.levels.INFO)
+
+    events.emit(events.types.NOTE, {
+      action = "updated",
+      note = { id = id, title = title, collectionId = collection_id },
+    }, { origin = ORIGIN })
   end)
 end
 
@@ -343,6 +361,11 @@ function M.delete_note(note_id)
       end
 
       vim.notify("Note deleted successfully", vim.log.levels.INFO)
+
+      events.emit(events.types.NOTE, {
+        action = "deleted",
+        note = { id = note_id },
+      }, { origin = ORIGIN })
     end)
   end)
 end

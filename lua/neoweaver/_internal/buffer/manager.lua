@@ -1,5 +1,9 @@
 --- Generic buffer management - lifecycle, state tracking, bidirectional lookup
+local events = require("neoweaver._internal.events")
+
 local M = {}
+
+local ORIGIN = "buffer"
 
 ---@class BufferEntity
 ---@field type string Entity type (e.g., "note", "collection")
@@ -254,5 +258,27 @@ function M.close(bufnr)
     vim.api.nvim_buf_delete(bufnr, { force = true })
   end
 end
+
+-- Subscribe to note events for cross-component coordination
+events.on({ events.types.NOTE }, function(event)
+  local data = event.data
+  if not data then
+    return
+  end
+
+  if data.action == "deleted" and data.note and data.note.id then
+    local bufnr = M.get("note", data.note.id)
+    if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
+      vim.api.nvim_set_option_value("modified", false, { buf = bufnr })
+      vim.api.nvim_buf_delete(bufnr, { force = true })
+    end
+  elseif data.action == "updated" and data.note and data.note.id and data.note.title then
+    local bufnr = M.get("note", data.note.id)
+    if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
+      vim.api.nvim_buf_set_name(bufnr, data.note.title)
+      vim.b[bufnr].note_title = data.note.title
+    end
+  end
+end, { origin = ORIGIN })
 
 return M

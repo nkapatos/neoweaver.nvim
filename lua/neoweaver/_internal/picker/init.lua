@@ -91,7 +91,7 @@ function Picker:onShow()
       if self.is_visible then
         self:refresh()
       end
-    end)
+    end, { origin = self.source.name })
   end
 end
 
