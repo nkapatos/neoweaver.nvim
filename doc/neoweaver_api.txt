@@ -1,0 +1,74 @@
+                                                             *neoweaver-lua-api*
+Neovim client for MindWeaver
+
+Neoweaver provides note management capabilities by communicating with
+the MindWeaver server over the Connect RPC API. Create, edit, and
+organize notes directly within Neovim.
+
+Quick start: >lua
+  require('neoweaver').setup({
+    api = {
+      servers = {
+        local = { url = "http://localhost:9421", default = true },
+      },
+    },
+  })
+<
+
+For full documentation, see |neoweaver|.
+
+See also ~
+|neoweaver| |neoweaver-configuration| |neoweaver-commands|
+
+------------------------------------------------------------------------------
+                                                             *neoweaver.setup()*
+                               `M.setup`({opts})
+Configure the plugin. Initialization is deferred until first use.
+
+Parameters ~
+{opts} `(optional)` `(neoweaver.Config)` Plugin configuration
+See also ~
+|neoweaver-configuration|
+Usage ~
+>lua
+  require('neoweaver').setup({
+    api = {
+      servers = {
+        local = { url = "http://localhost:9421", default = true },
+      },
+    },
+  })
+<
+------------------------------------------------------------------------------
+                                                      *neoweaver.ensure_ready()*
+                   `M.ensure_ready`({on_ready}, {on_cancel})
+Entry point for all plugin functionality.
+Runs deferred init, checks server health, shows server selector if unhealthy.
+
+Parameters ~
+{on_ready} `(fun())` Called when plugin is ready
+{on_cancel} `(optional)` `(fun())` Called if user cancels server selection
+Usage ~
+>lua
+  require('neoweaver').ensure_ready(function()
+    vim.cmd('NeoweaverNotesList')
+  end)
+<
+------------------------------------------------------------------------------
+                                                        *neoweaver.get_config()*
+                                `M.get_config`()
+Get the current configuration.
+
+Return ~
+`(neoweaver.Config)`
+
+------------------------------------------------------------------------------
+                                                      *neoweaver.get_explorer()*
+                               `M.get_explorer`()
+Get the explorer instance for programmatic access.
+
+Return ~
+`(neoweaver.Explorer)`
+
+
+ vim:tw=78:ts=8:noet:ft=help:norl:

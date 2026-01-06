@@ -1,0 +1,680 @@
+*neoweaver.txt*                       Neoweaver - Neovim client for MindWeaver
+
+==============================================================================
+Table of Contents                                *neoweaver-table-of-contents*
+
+1. Neoweaver                                             |neoweaver-neoweaver|
+  - Introduction                            |neoweaver-neoweaver-introduction|
+2. Installation                                       |neoweaver-installation|
+  - Prerequisites                       |neoweaver-installation-prerequisites|
+  - Plugin Setup                         |neoweaver-installation-plugin-setup|
+  - Next Steps                             |neoweaver-installation-next-steps|
+3. Configuration                                     |neoweaver-configuration|
+  - Configuration Options      |neoweaver-configuration-configuration-options|
+  - Complete Setup Example    |neoweaver-configuration-complete-setup-example|
+4. Commands                                               |neoweaver-commands|
+  - Notes                                           |neoweaver-commands-notes|
+  - Quicknotes                                 |neoweaver-commands-quicknotes|
+  - Explorer & Collections         |neoweaver-commands-explorer-&-collections|
+  - Server                                         |neoweaver-commands-server|
+  - Usage Examples                         |neoweaver-commands-usage-examples|
+  - Conflict Resolution               |neoweaver-commands-conflict-resolution|
+5. Keymaps                                                 |neoweaver-keymaps|
+  - Global Keymaps (User-Configured)|neoweaver-keymaps-global-keymaps-(user-configured)|
+  - Explorer Keymaps                      |neoweaver-keymaps-explorer-keymaps|
+  - Conflict Resolution Keymaps|neoweaver-keymaps-conflict-resolution-keymaps|
+  - Floating Picker Keymaps        |neoweaver-keymaps-floating-picker-keymaps|
+  - See Also                                      |neoweaver-keymaps-see-also|
+6. API Reference                                     |neoweaver-api-reference|
+7. See Also                                               |neoweaver-see-also|
+8. License                                                 |neoweaver-license|
+Last updated: 2026-01-06 Author: Nikos Kapatos License: MIT (see
+|neoweaver-license|)
+
+------------------------------------------------------------------------------
+
+==============================================================================
+1. Neoweaver                                             *neoweaver-neoweaver*
+
+Neovim client for MindWeaver - Manage your notes directly from Neovim.
+
+
+INTRODUCTION                                *neoweaver-neoweaver-introduction*
+
+Neoweaver is a Neovim plugin that provides note management capabilities by
+communicating with the MindWeaver server over the Connect RPC API. It allows
+you to create, edit, and organize notes directly within Neovim using markdown
+buffers.
+
+
+==============================================================================
+2. Installation                                       *neoweaver-installation*
+
+
+PREREQUISITES                           *neoweaver-installation-prerequisites*
+
+- Neovim 0.11+ - Required for plugin functionality
+- plenary.nvim - Required dependency for HTTP requests
+- nui.nvim - Required dependency for UI components
+- MindWeaver server - Running and accessible
+
+
+PLUGIN SETUP                             *neoweaver-installation-plugin-setup*
+
+
+LAZY.NVIM ~
+
+>lua
+    {
+      "nkapatos/neoweaver.nvim",
+      dependencies = {
+        "nvim-lua/plenary.nvim",
+        "MunifTanjim/nui.nvim",
+      },
+      opts = {
+        api = {
+          servers = {
+            local = { url = "http://localhost:9421", default = true },
+          },
+        },
+      },
+    }
+<
+
+
+VIM.PACK (NEOVIM 0.12+) ~
+
+>lua
+    vim.pack.add({
+      url = "https://github.com/nkapatos/neoweaver.nvim",
+      dependencies = {
+        { url = "https://github.com/nvim-lua/plenary.nvim" },
+        { url = "https://github.com/MunifTanjim/nui.nvim" },
+      },
+    })
+    
+    require('neoweaver').setup({
+      api = {
+        servers = {
+          local = { url = "http://localhost:9421", default = true },
+        },
+      },
+    })
+<
+
+
+PACKER.NVIM ~
+
+>lua
+    use {
+      "nkapatos/neoweaver.nvim",
+      requires = {
+        "nvim-lua/plenary.nvim",
+        "MunifTanjim/nui.nvim",
+      },
+      config = function()
+        require('neoweaver').setup({
+          api = {
+            servers = {
+              local = { url = "http://localhost:9421", default = true },
+            },
+          },
+        })
+      end,
+    }
+<
+
+
+NEXT STEPS                                 *neoweaver-installation-next-steps*
+
+- See |neoweaver-keymaps| for suggested keymaps and built-in mappings
+- See |neoweaver-commands| for the full list of available commands
+- See |neoweaver-configuration| for all configuration options
+
+
+==============================================================================
+3. Configuration                                     *neoweaver-configuration*
+
+
+CONFIGURATION OPTIONS          *neoweaver-configuration-configuration-options*
+
+
+ALLOW_MULTIPLE_EMPTY_NOTES ~
+
+- Type: boolean
+- Default: `false`
+
+When `true`, new note buffers are marked as modified immediately, allowing
+multiple untitled notes without Neovim blocking on `:w`.
+
+>lua
+    require('neoweaver').setup({
+      allow_multiple_empty_notes = true,
+    })
+<
+
+
+API.SERVERS ~
+
+- Type: table (required)
+- Description: Map of server names to configuration
+
+Each server entry must provide a `url`. Set `default = true` on one entry to
+select it automatically.
+
+Single server example:
+
+>lua
+    api = {
+      servers = {
+        local = { url = "http://localhost:9421", default = true },
+      },
+    }
+<
+
+Multiple servers example:
+
+>lua
+    api = {
+      servers = {
+        local = { url = "http://localhost:9421", default = true },
+        cloud = { url = "https://mindweaver.example.com" },
+        staging = { url = "https://staging.mindweaver.example.com" },
+      },
+    }
+<
+
+Switch between servers using `:NeoweaverServerUse <server_name>`.
+
+
+API.DEBUG_INFO ~
+
+- Type: boolean
+- Default: `true`
+
+Toggles API request/response logging. Can be toggled at runtime with
+`:NeoweaverToggleDebug`.
+
+>lua
+    api = {
+      debug_info = false,  -- Disable debug logging
+    }
+<
+
+
+QUICKNOTES ~
+
+- Type: table
+- Default: see below
+
+Quicknotes configure the floating capture window. The default configuration
+matches the built-in capture flow:
+
+>lua
+    quicknotes = {
+      title_template = "%Y%m%d%H%M",
+      collection_id = 2,
+      note_type_id = 2,
+      popup = {
+        relative = "editor",
+        position = "50%",
+        size = {
+          width = "40%",
+          height = "20%",
+        },
+        border = {
+          style = "rounded",
+          text = {
+            top = "Quick Note",
+            top_align = "center",
+          },
+        },
+      },
+    }
+<
+
+Notes:
+
+- `title_template` is passed to `strftime()` when a quicknote saves. Use any valid strftime pattern.
+- `collection_id` and `note_type_id` use default values and are not yet user-configurable.
+
+
+EXPLORER ~
+
+- Type: table
+- Default: `{ show_notifications = true }`
+
+Controls explorer sidebar behavior.
+
+>lua
+    explorer = {
+      show_notifications = true,  -- Show notifications on refresh
+    }
+<
+
+
+PICKER ~
+
+- Type: table
+- Default: see below
+
+Controls floating picker appearance (e.g., note list picker).
+
+>lua
+    picker = {
+      size = {
+        width = 60,
+        height = 20,
+      },
+      position = "50%",
+      border = {
+        style = "rounded",
+      },
+    }
+<
+
+
+METADATA ~
+
+Metadata is automatically extracted and attached to notes when saving. No
+configuration required.
+
+
+AUTO-DETECTED FIELDS
+
+The following fields are captured automatically:
+
+  -----------------------------------------------------------------------
+  Field                    Description
+  ------------------------ ----------------------------------------------
+  project                  From .weaveroot.json meta.project, or
+                           directory name fallback
+
+  project_root             Absolute path to project root (where
+                           .weaveroot.json lives)
+
+  cwd                      Current working directory of the nvim session
+
+  commit_hash              Git short hash (git rev-parse --short HEAD)
+
+  git_branch               Current git branch (git branch --show-current)
+  -----------------------------------------------------------------------
+
+.WEAVEROOT.JSON META
+
+Additional project-level metadata can be defined in `.weaveroot.json`:
+
+>json
+    {
+      "meta": {
+        "project": "Mindweaver",
+        "author": "Your Name",
+        "team": "Core"
+      }
+    }
+<
+
+All fields under `meta` are merged with auto-detected fields. `meta` fields
+override auto-detected ones (e.g., `meta.project` overrides the directory
+name).
+
+
+PROJECT FILES ~
+
+
+.WEAVEROOT / .WEAVEROOT.JSON
+
+Marks the project root boundary. The extractor walks up from cwd until it finds
+one of these files.
+
+- `.weaveroot` - Empty file, only marks the boundary
+- `.weaveroot.json` - Marks the boundary AND provides project metadata via the `meta` key
+
+If neither is found, session cwd is used as the project root.
+
+>json
+    {
+      "meta": {
+        "project": "my-workspace",
+        "description": "Parent workspace for multiple projects"
+      }
+    }
+<
+
+
+.WEAVERC.JSON
+
+Project-level plugin settings (NOT metadata). Used to configure plugin behavior
+per-directory, such as default collection, template, or server.
+
+>json
+    {
+      "settings": {
+        "collection_id": 5,
+        "template": "daily",
+        "server": "work"
+      }
+    }
+<
+
+Note: `.weaverc.json` does NOT contribute to note metadata. Only
+`.weaveroot.json` provides project metadata.
+
+
+COMPLETE SETUP EXAMPLE        *neoweaver-configuration-complete-setup-example*
+
+>lua
+    require('neoweaver').setup({
+      allow_multiple_empty_notes = true,
+      quicknotes = {
+        title_template = "%Y%m%d%H%M",
+        popup = {
+          size = {
+            width = 80,
+            height = 20,
+          },
+          border = {
+            text = {
+              top = "Scratchpad",
+            },
+          },
+        },
+      },
+      api = {
+        servers = {
+          local = { url = "http://localhost:9421", default = true },
+          cloud = { url = "https://mindweaver.example.com" },
+        },
+        debug_info = true,
+      },
+    })
+<
+
+For keymaps configuration, see |neoweaver-keymaps|.
+
+
+==============================================================================
+4. Commands                                               *neoweaver-commands*
+
+Neoweaver provides commands for managing notes, quicknotes, collections, and
+server configuration.
+
+
+NOTES                                               *neoweaver-commands-notes*
+
+  Command                       Arguments   Description
+  ----------------------------- ----------- ------------------------------------------
+  :NeoweaverNotesList           -           List notes in picker
+  :NeoweaverNotesOpen           <id>        Open note by ID
+  :NeoweaverNotesNew            -           Create new untitled note
+  :NeoweaverNotesNewWithTitle   -           Create note with title prompt
+  :NeoweaverNotesTitle          -           Edit current note title
+  :NeoweaverNotesDelete         <id>        Delete note by ID
+  :NeoweaverNotesMeta           [id]        Edit note metadata (WIP - See issue #15)
+
+QUICKNOTES                                     *neoweaver-commands-quicknotes*
+
+  Command                     Arguments   Description
+  --------------------------- ----------- --------------------------------------------
+  :NeoweaverNotesQuick        -           Capture quicknote in floating window
+  :NeoweaverNotesQuickAmend   -           Amend last quicknote (WIP - See issue #14)
+  :NeoweaverNotesQuickList    -           List quicknotes (WIP - See issue #14)
+
+EXPLORER & COLLECTIONS             *neoweaver-commands-explorer-&-collections*
+
+  --------------------------------------------------------------------------------
+  Command                      Arguments               Description
+  ---------------------------- ----------------------- ---------------------------
+  :NeoweaverExplorer           [action]                Explorer
+                                                       (open/close/toggle/focus)
+
+  :NeoweaverCollectionCreate   <name> [parent_id]      Create new collection
+
+  :NeoweaverCollectionRename   <id> <new_name>         Rename collection
+
+  :NeoweaverCollectionDelete   <id>                    Delete collection (prompts
+                                                       for confirmation)
+
+  :NeoweaverCollectionUpdate   <id> [key=val...]       Update collection fields
+  --------------------------------------------------------------------------------
+
+SERVER                                             *neoweaver-commands-server*
+
+  Command                 Arguments   Description
+  ----------------------- ----------- -----------------------------
+  :NeoweaverServerUse     <name>      Switch to configured server
+  :NeoweaverToggleDebug   -           Toggle debug logging
+
+USAGE EXAMPLES                             *neoweaver-commands-usage-examples*
+
+
+CREATING NOTES ~
+
+>vim
+    " Create a new untitled note
+    :NeoweaverNotesNew
+    
+    " Create a note with title prompt
+    :NeoweaverNotesNewWithTitle
+    
+    " Capture a quicknote (floating window)
+    :NeoweaverNotesQuick
+<
+
+
+MANAGING NOTES ~
+
+>vim
+    " List all notes in picker
+    :NeoweaverNotesList
+    
+    " Open a specific note by ID
+    :NeoweaverNotesOpen 42
+    
+    " Edit the title of the current note
+    :NeoweaverNotesTitle
+    
+    " Delete a note by ID
+    :NeoweaverNotesDelete 42
+<
+
+
+EXPLORER & COLLECTIONS ~
+
+>vim
+    " Toggle the explorer panel
+    :NeoweaverExplorer
+    
+    " Open/close/focus explorer explicitly
+    :NeoweaverExplorer open
+    :NeoweaverExplorer close
+    :NeoweaverExplorer focus
+    
+    " Create a new collection
+    :NeoweaverCollectionCreate MyCollection
+    
+    " Create a nested collection (with parent ID)
+    :NeoweaverCollectionCreate SubCollection 5
+    
+    " Rename a collection
+    :NeoweaverCollectionRename 5 NewName
+    
+    " Update collection fields
+    :NeoweaverCollectionUpdate 5 displayName=NewName parentId=2
+    
+    " Delete a collection
+    :NeoweaverCollectionDelete 5
+<
+
+
+SERVER MANAGEMENT ~
+
+>vim
+    " Switch to a different configured server
+    :NeoweaverServerUse cloud
+    
+    " Toggle debug logging
+    :NeoweaverToggleDebug
+<
+
+
+CONFLICT RESOLUTION                   *neoweaver-commands-conflict-resolution*
+
+When saving a note and the server version has changed (412 Precondition
+Failed), a diff overlay appears showing conflicts between your local changes
+and the server version.
+
+Use `]c`/`[c` to navigate conflicts, then `gh` (accept server), `gl` (keep
+local), or `gb` (keep both) to resolve. Save with `:w` to retry.
+
+See |neoweaver-keymaps-conflict-resolution-keymaps| for the full keybinding
+reference.
+
+
+==============================================================================
+5. Keymaps                                                 *neoweaver-keymaps*
+
+Neoweaver does not set any global keymaps by default. This page documents
+suggested keymaps and built-in buffer-local keymaps.
+
+
+GLOBAL KEYMAPS (USER-CONFIGURED)*neoweaver-keymaps-global-keymaps-(user-configured)*
+
+Add these to your Neovim configuration:
+
+>lua
+    -- Notes
+    vim.keymap.set("n", "<leader>nl", "<cmd>NeoweaverNotesList<cr>", { desc = "List notes" })
+    vim.keymap.set("n", "<leader>nn", "<cmd>NeoweaverNotesNew<cr>", { desc = "New note" })
+    vim.keymap.set("n", "<leader>nN", "<cmd>NeoweaverNotesNewWithTitle<cr>", { desc = "New note with title" })
+    vim.keymap.set("n", "<leader>nt", "<cmd>NeoweaverNotesTitle<cr>", { desc = "Edit note title" })
+    
+    -- Quicknotes
+    vim.keymap.set("n", "<leader>nq", "<cmd>NeoweaverNotesQuick<cr>", { desc = "Quick note" })
+    vim.keymap.set("n", "<leader>na", "<cmd>NeoweaverNotesQuickAmend<cr>", { desc = "Amend quicknote" })
+    
+    -- Explorer
+    vim.keymap.set("n", "<leader>ne", "<cmd>NeoweaverExplorer<cr>", { desc = "Toggle explorer" })
+<
+
+
+LAZY.NVIM ~
+
+For lazy-loading on keypress:
+
+>lua
+    {
+      "nkapatos/neoweaver.nvim",
+      keys = {
+        { "<leader>nl", "<cmd>NeoweaverNotesList<cr>", desc = "List notes" },
+        { "<leader>nn", "<cmd>NeoweaverNotesNew<cr>", desc = "New note" },
+        { "<leader>nN", "<cmd>NeoweaverNotesNewWithTitle<cr>", desc = "New note with title" },
+        { "<leader>nt", "<cmd>NeoweaverNotesTitle<cr>", desc = "Edit note title" },
+        { "<leader>nq", "<cmd>NeoweaverNotesQuick<cr>", desc = "Quick note" },
+        { "<leader>na", "<cmd>NeoweaverNotesQuickAmend<cr>", desc = "Amend quicknote" },
+        { "<leader>ne", "<cmd>NeoweaverExplorer<cr>", desc = "Toggle explorer" },
+      },
+      -- ... rest of config
+    }
+<
+
+
+EXPLORER KEYMAPS                          *neoweaver-keymaps-explorer-keymaps*
+
+These keymaps are active in the explorer sidebar:
+
+  Key    Action   Description
+  ------ -------- -----------------------------------------------------
+  <CR>   Select   Open note or expand/collapse collection
+  o      Select   Same as <CR>
+  a      Create   Create note or collection (append / for collection)
+  r      Rename   Rename collection (not available for notes)
+  d      Delete   Delete note or collection
+
+CREATE CONVENTION ~
+
+When pressing `a` to create:
+
+- `meeting notes` creates a note named "meeting notes"
+- `projects/` creates a collection named "projects"
+
+
+CONFLICT RESOLUTION KEYMAPS    *neoweaver-keymaps-conflict-resolution-keymaps*
+
+These keymaps are active when a save conflict is detected (412 Precondition
+Failed):
+
+  Key   Action              Description
+  ----- ------------------- --------------------------------------------
+  ]c    Next conflict       Jump to next unresolved conflict
+  [c    Previous conflict   Jump to previous unresolved conflict
+  gh    Accept server       Use server version, discard local changes
+  gl    Keep local          Keep local version, discard server changes
+  gb    Keep both           Insert both versions with markers
+After resolving conflicts, save with `:w` to retry.
+
+
+FLOATING PICKER KEYMAPS            *neoweaver-keymaps-floating-picker-keymaps*
+
+These keymaps are active in floating picker windows (e.g., note list):
+
+  Key     Action
+  ------- --------------
+  <CR>    Select item
+  q       Close picker
+  <Esc>   Close picker
+
+SEE ALSO                                          *neoweaver-keymaps-see-also*
+
+- |neoweaver-commands| - Full list of available commands
+- |neoweaver-configuration| - Plugin configuration options
+
+
+==============================================================================
+6. API Reference                                     *neoweaver-api-reference*
+
+For detailed API documentation including function signatures, parameters, and
+types, see the `neoweaver_api.txt` help file:
+
+- `:help neoweaver.setup()` - Plugin configuration
+- `:help neoweaver.ensure_ready()` - Initialization entry point
+- `:help neoweaver.get_config()` - Get current configuration
+- `:help neoweaver.get_explorer()` - Get explorer instance
+
+
+==============================================================================
+7. See Also                                               *neoweaver-see-also*
+
+- Plugin repository: https://github.com/nkapatos/neoweaver.nvim
+- MindWeaver server: https://github.com/nkapatos/mindweaver
+
+------------------------------------------------------------------------------
+
+==============================================================================
+8. License                                                 *neoweaver-license*
+
+MIT License
+
+Copyright (c) 2024 Nikos Kapatos
+
+Permission is granted, free of charge, to any person obtaining a copy of this
+software and associated documentation files (the "Software"), to deal in the
+Software without restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+Generated by panvimdoc <https://github.com/kdheepak/panvimdoc>
+
+vim:tw=78:ts=8:noet:ft=help:norl:
