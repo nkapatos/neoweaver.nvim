@@ -98,12 +98,15 @@ tasks:
 
   docs:gen:
     desc: Generate nvim help file documentation
-    deps: ['deps']
+    deps: ['docs:gen:panvimdoc', 'docs:api']
+    cmds:
+      - task: docs:tags
 
   docs:gen:panvimdoc:
     desc: Generate vimdoc from markdown using panvimdoc
     deps: ['deps:panvimdoc']
     cmds:
+      - mkdir -p doc
       - >
         pandoc
         --shift-heading-level-by=0
@@ -147,7 +150,7 @@ tasks:
 
   docs:tags:
     desc: Generate vim help tags
-    deps: [docs:api]
+    deps: ['docs:gen:panvimdoc', 'docs:api']
     cmds:
       - nvim --headless -c 'helptags doc' -c 'quit'
     sources:
