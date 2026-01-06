@@ -665,4 +665,60 @@ function M.events.status()
   return sse_state.status
 end
 
+-- Health check API
+M.health = {}
+
+--- Ping the health endpoint of a server
+--- @param server_name string|nil Server name to ping (nil = current server)
+--- @param callback fun(result: {ok: boolean, error: string?}) Result callback
+function M.health.ping(server_name, callback)
+  local server_url
+  if server_name then
+    local entry = M.config.servers[server_name]
+    if not entry then
+      callback({ ok = false, error = "Server not configured: " .. server_name })
+      return
+    end
+    server_url = entry.url
+  else
+    local ok, url = pcall(get_current_server_url)
+    if not ok then
+      callback({ ok = false, error = tostring(url) })
+      return
+    end
+    server_url = url
+  end
+
+  local url = server_url .. "/health"
+
+  curl.get(url, {
+    timeout = 2000, -- 2 seconds
+    callback = function(res)
+      vim.schedule(function()
+        if res.status ~= 200 then
+          callback({ ok = false, error = "HTTP " .. res.status })
+          return
+        end
+
+        local ok, body = pcall(vim.json.decode, res.body)
+        if not ok then
+          callback({ ok = false, error = "Invalid JSON response" })
+          return
+        end
+
+        if body.status == "healthy" then
+          callback({ ok = true })
+        else
+          callback({ ok = false, error = "Status: " .. (body.status or "unknown") })
+        end
+      end)
+    end,
+    on_error = function(err)
+      vim.schedule(function()
+        callback({ ok = false, error = tostring(err.message or err) })
+      end)
+    end,
+  })
+end
+
 return M
