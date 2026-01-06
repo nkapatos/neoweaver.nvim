@@ -1,11 +1,14 @@
+<!-- panvimdoc-ignore-start -->
 <p align="center">
   <img src="assets/logo.svg" alt="Neoweaver" width="120" />
 </p>
+<!-- panvimdoc-ignore-end -->
 
 # Neoweaver
 
 ### Neovim client for [MindWeaver](https://github.com/nkapatos/mindweaver)
 
+<!-- panvimdoc-ignore-start -->
 ---
 
 [![CI](https://img.shields.io/github/actions/workflow/status/nkapatos/neoweaver.nvim/pr-checks.yml?branch=main&style=flat-square&logo=github&label=CI)](https://github.com/nkapatos/neoweaver.nvim/actions/workflows/pr-checks.yml)
@@ -13,6 +16,7 @@
 [![Neovim](https://img.shields.io/badge/Neovim-0.11+-57A143?style=flat-square&logo=neovim)](https://github.com/neovim/neovim/releases/tag/v0.11.0)
 
 > Your second brain, one keystroke away — no mouse required, sanity preserved.
+<!-- panvimdoc-ignore-end -->
 
 Neoweaver brings MindWeaver's personal knowledge management directly into Neovim. Create, browse, and search your notes without leaving your editor, communicating with the MindWeaver server over the Connect RPC API.
 

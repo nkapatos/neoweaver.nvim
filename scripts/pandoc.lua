@@ -1,11 +1,17 @@
 ---@diagnostic disable: undefined-global
 --- Pandoc filter for vimdoc preprocessing (runs before panvimdoc.lua)
 --- - Converts internal markdown links to vimdoc tags
+--- - Removes markdown emphasis (vimdoc doesn't render **bold** or _italic_ well)
 --- - Injects header with license info
---- - Removes markdown emphasis
 
 local stringify = pandoc.utils.stringify
 local date = os.date("%Y-%m-%d")
+
+--- Debug logging (uncomment to enable)
+--- Usage: P("message") or P(table)
+-- local function P(s)
+--   require("scripts.logging").temp(s)
+-- end
 
 --- Convert internal .md links to vimdoc tags
 --- [Keymaps](keymaps.md) -> |neoweaver-keymaps|
@@ -35,6 +41,9 @@ local function convert_internal_links(el)
   return pandoc.Str("|" .. tag .. "|")
 end
 
+--- Remove markdown emphasis markers
+--- panvimdoc.lua converts **bold** to **bold** and _italic_ to _italic_
+--- but vimdoc doesn't render these, so we strip the markers for cleaner output
 ---@param el pandoc.Emph|pandoc.Strong
 ---@return pandoc.Str
 local function remove_emphasis(el)
