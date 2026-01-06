@@ -1,23 +1,5 @@
----
---- extractor.lua - Project metadata extraction
----
---- Extracts metadata from .weaveroot.json at project root only.
---- .weaverc.json is for plugin settings, not metadata.
----
---- Root detection: .weaveroot or .weaveroot.json defines project boundary.
---- If not found, session cwd is used as fallback.
----
---- Auto-detected fields:
----   - project_root: where .weaveroot.json lives (or cwd fallback)
----   - cwd: current working directory
----   - commit_hash: git short hash
----   - git_branch: current git branch
----   - project: from .weaveroot.json meta, or directory name fallback
----
---- TODO: Future LSP integration fields (see issue #XX):
----   - current_file: buffer path when note was created (for quicknotes from code)
----   - filetype: language of the file being edited
----
+--- Project metadata extraction from .weaveroot.json
+--- Auto-detected: project, project_root, cwd, commit_hash, git_branch
 ---@module 'neoweaver._internal.meta.extractor'
 local M = {}
 
@@ -32,11 +14,10 @@ local parsers = require("neoweaver._internal.meta.parsers")
 ---@field [string] any Additional fields from .weaveroot.json meta
 
 ---@class ExtractorCache
----@field data ProjectMetadata|nil Cached metadata
----@field mtime number|nil .weaveroot.json modification time
----@field root_dir string|nil Cached project root
+---@field data ProjectMetadata|nil
+---@field mtime number|nil
+---@field root_dir string|nil
 
--- Cache for extracted metadata with file modification time tracking
 ---@type ExtractorCache
 local cache = {
   data = nil,
@@ -44,9 +25,9 @@ local cache = {
   root_dir = nil,
 }
 
---- Find project root by walking up looking for .weaveroot or .weaveroot.json
---- @param start_dir string Starting directory
---- @return string root_dir Project root (or start_dir if not found)
+--- Find project root
+--- @param start_dir string
+--- @return string
 local function find_root(start_dir)
   local seen = {}
   local dir = start_dir
@@ -54,7 +35,6 @@ local function find_root(start_dir)
   while dir ~= "/" and not seen[dir] do
     seen[dir] = true
 
-    -- Check for .weaveroot (empty file) or .weaveroot.json
     if vim.uv.fs_stat(dir .. "/.weaveroot") then
       return dir
     end
@@ -69,13 +49,13 @@ local function find_root(start_dir)
     dir = parent
   end
 
-  -- No .weaveroot found, use start_dir (cwd) as fallback
+  -- Not found, use start_dir as fallback
   return start_dir
 end
 
---- Collect metadata sources - only .weaveroot.json at project root
---- @param root_dir string Project root directory
---- @return string|nil weaveroot_path Path to .weaveroot.json or nil if not found
+--- Collect .weaveroot.json path if exists
+--- @param root_dir string
+--- @return string|nil
 local function collect_source(root_dir)
   local weaveroot_path = root_dir .. "/.weaveroot.json"
   if vim.uv.fs_stat(weaveroot_path) then
@@ -84,9 +64,9 @@ local function collect_source(root_dir)
   return nil
 end
 
---- Extract metadata from .weaveroot.json
---- @param path string Path to .weaveroot.json
---- @return table|nil Extracted key-value pairs from `meta` key, or nil
+--- Extract from .weaveroot.json meta key
+--- @param path string
+--- @return table|nil
 local function extract_from_weaveroot(path)
   local data = parsers.parse_json(path)
   if not data or not data.meta or type(data.meta) ~= "table" then
@@ -96,7 +76,6 @@ local function extract_from_weaveroot(path)
   local result = {}
   for k, v in pairs(data.meta) do
     if type(v) == "table" then
-      -- For nested tables, use 'name' field if present, otherwise serialize
       v = v.name or vim.inspect(v):gsub("\n", " ")
     end
     result[k] = tostring(v)
@@ -104,21 +83,16 @@ local function extract_from_weaveroot(path)
   return result
 end
 
---- Main extraction function with caching support
---- Extracts auto-detected fields + .weaveroot.json meta
----
---- @param start_dir? string Starting directory (defaults to cwd)
---- @return ProjectMetadata|nil Extracted metadata
+--- Main extraction with caching
+--- @param start_dir? string
+--- @return ProjectMetadata|nil
 function M.extract_metadata(start_dir)
   start_dir = start_dir or vim.fn.getcwd()
 
-  -- Find project root
   local root_dir = find_root(start_dir)
-
-  -- Find .weaveroot.json source
   local weaveroot_path = collect_source(root_dir)
 
-  -- Check if cache is valid
+  -- Check cache validity
   local needs_refresh = false
 
   if cache.root_dir ~= root_dir then
@@ -136,12 +110,11 @@ function M.extract_metadata(start_dir)
     end
   end
 
-  -- Return cached data if still valid
   if cache.data and not needs_refresh then
     return vim.deepcopy(cache.data)
   end
 
-  -- Extract fresh metadata (auto-detected fields)
+  -- Extract fresh metadata
   local meta = {
     project = vim.g.quicknote_project or vim.fn.fnamemodify(root_dir, ":t"),
     cwd = vim.fn.getcwd(),
@@ -150,7 +123,7 @@ function M.extract_metadata(start_dir)
     project_root = root_dir,
   }
 
-  -- Extract from .weaveroot.json if present (meta key overrides auto-detected fields)
+  -- Merge from .weaveroot.json if present
   if weaveroot_path then
     local stat = vim.uv.fs_stat(weaveroot_path)
     if stat then
@@ -164,21 +137,19 @@ function M.extract_metadata(start_dir)
     end
   end
 
-  -- Cache the result
   cache.data = vim.deepcopy(meta)
   return meta
 end
 
---- Clear cache for all cached metadata
---- Useful for testing or manual refresh
+--- Clear cache
 function M.clear_cache()
   cache.data = nil
   cache.mtime = nil
   cache.root_dir = nil
 end
 
---- Get current cache state (for debugging/inspection)
---- @return ExtractorCache Current cache contents
+--- Get cache state (for debugging)
+--- @return ExtractorCache
 function M._get_cache()
   return cache
 end

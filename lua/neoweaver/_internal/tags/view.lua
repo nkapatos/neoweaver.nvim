@@ -1,4 +1,4 @@
---- tags/view.lua - ViewSource for tags (read-only)
+--- ViewSource for tags (read-only)
 
 local NuiTree = require("nui.tree")
 local NuiLine = require("nui.line")

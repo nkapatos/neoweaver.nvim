@@ -1,6 +1,4 @@
---- collections/view.lua - ViewSource for collections and notes
----
---- Node types: collection, note
+--- ViewSource for collections and notes
 --- Create convention: "name" = note, "name/" = collection
 
 local NuiTree = require("nui.tree")

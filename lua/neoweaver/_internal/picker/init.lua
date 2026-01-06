@@ -1,12 +1,5 @@
----
---- picker/init.lua - Generic tree picker component
----
---- Host-agnostic tree viewer using NuiTree. Each picker owns its own buffer.
---- Hosts (explorer, floating window) display the picker's buffer in their window
---- and call lifecycle hooks. ViewSource provides domain data.
----
+--- Generic tree picker component using NuiTree
 --- Lifecycle: onMount → onShow → onHide → onUnmount
----
 
 local NuiTree = require("nui.tree")
 
@@ -66,7 +59,7 @@ function Picker:_cancel_idle_timer()
   end
 end
 
---- Creates buffer, tree, and binds keymaps
+--- Creates buffer, tree, and keymaps
 function Picker:onMount()
   self.bufnr = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_option(self.bufnr, "buftype", "nofile")
@@ -86,7 +79,7 @@ function Picker:onMount()
   self:_bind_navigation()
 end
 
---- Loads data and subscribes to SSE events
+--- Loads data and subscribes to SSE
 function Picker:onShow()
   self:_cancel_idle_timer()
   self.is_visible = true
@@ -102,13 +95,13 @@ function Picker:onShow()
   end
 end
 
---- Pauses updates and starts idle timer
+--- Pauses updates, starts idle timer
 function Picker:onHide()
   self.is_visible = false
   self:_start_idle_timer()
 end
 
---- Cleans up buffer, SSE subscription, and notifies manager
+--- Cleans up buffer, SSE, and notifies manager
 function Picker:onUnmount()
   self:_cancel_idle_timer()
 
@@ -221,7 +214,7 @@ function Picker:_set_cursor_to_node(node_id)
   end
 end
 
---- Reloads data while preserving expanded state and cursor position
+--- Reload preserving expanded state and cursor
 function Picker:refresh()
   local expanded_ids = self:_get_expanded_node_ids()
   local cursor_id = self:_get_cursor_node_id()

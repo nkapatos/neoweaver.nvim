@@ -1,8 +1,4 @@
----
---- health.lua - Health check for neoweaver plugin
---- Provides diagnostics via :checkhealth neoweaver
---- Updated for testing release automation
----
+--- Health check for :checkhealth neoweaver
 local M = {}
 
 --- Run checkhealth diagnostics
@@ -71,14 +67,6 @@ function M.check()
       end
       vim.health.info("Available servers: " .. table.concat(server_names, ", "))
     end
-  end
-
-  -- Check configuration
-  local current_config = config.get()
-  if current_config.keymaps.enabled then
-    vim.health.info("Keymaps are enabled")
-  else
-    vim.health.info("Keymaps are disabled (opt-in via config)")
   end
 end
 

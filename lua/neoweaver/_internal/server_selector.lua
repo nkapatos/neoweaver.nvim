@@ -1,23 +1,15 @@
----
---- server_selector.lua - Server selection UI for when health check fails
----
+--- Server selection UI for health check failures
 local M = {}
 
---- Show server selector popup
---- @param opts table Options
---- @param opts.servers table<string, {url: string}> Available servers
---- @param opts.failed_server string? Server that failed health check (marked as unreachable)
---- @param opts.on_select fun(server_name: string) Called when user selects a server
---- @param opts.on_cancel fun() Called when user cancels selection
+---@param opts {servers: table<string, {url: string}>, failed_server: string?, on_select: fun(name: string), on_cancel: fun()}
 function M.show(opts)
   local servers = opts.servers or {}
   local failed_server = opts.failed_server
   local on_select = opts.on_select
   local on_cancel = opts.on_cancel or function() end
 
-  -- Build list of server names with status indicators
   local items = {}
-  local name_map = {} -- display string -> server name
+  local name_map = {}
 
   for name, config in pairs(servers) do
     local display
@@ -40,13 +32,6 @@ function M.show(opts)
 
   vim.ui.select(items, {
     prompt = "Select server (current unreachable):",
-    format_item = function(item)
-      -- Highlight unreachable server
-      if item:match("%[unreachable%]$") then
-        return item
-      end
-      return item
-    end,
   }, function(choice)
     if not choice then
       on_cancel()

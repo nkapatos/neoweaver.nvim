@@ -1,13 +1,11 @@
--- neoweaver.nvim plugin entry point
--- This file is automatically sourced by Neovim on startup
--- Commands are defined here following Neovim plugin best practices
+--- Command definitions for neoweaver.nvim
+--- See docs/commands.md for usage.
 
 if vim.g.loaded_neoweaver then
   return
 end
 vim.g.loaded_neoweaver = true
 
--- Helper to wrap command logic with ensure_ready
 local function with_ready(fn)
   return function(opts)
     require("neoweaver").ensure_ready(function()
@@ -16,10 +14,7 @@ local function with_ready(fn)
   end
 end
 
--- Create commands
--- Note: The plugin must be setup via require('neoweaver').setup() before these work
-
--- Notes commands
+-- Notes
 vim.api.nvim_create_user_command("NeoweaverNotesList", with_ready(function()
   require("neoweaver._internal.notes").list_notes()
 end), { desc = "List notes" })
@@ -71,21 +66,17 @@ vim.api.nvim_create_user_command("NeoweaverNotesQuickAmend", with_ready(function
   require("neoweaver._internal.quicknote").amend()
 end), { desc = "Amend quicknote - See issue #14" })
 
--- API/Server commands
--- Note: NeoweaverServerUse does NOT require ensure_ready - it just changes config
+-- Server (NeoweaverServerUse doesn't require ensure_ready - just changes config)
 vim.api.nvim_create_user_command("NeoweaverServerUse", function(opts)
   local neoweaver = require("neoweaver")
   if not neoweaver._setup_done then
     vim.notify("Neoweaver: call require('neoweaver').setup() first", vim.log.levels.ERROR)
     return
   end
-  -- If already initialized, use api directly; otherwise defer
   if neoweaver._initialized then
     require("neoweaver._internal.api").set_current_server(opts.args)
   else
-    -- Store for later - will be used on next ensure_ready
     vim.notify("Server will be used on next command: " .. opts.args, vim.log.levels.INFO)
-    -- We need to initialize to set the server, but skip health check
     local config = require("neoweaver._internal.config")
     config.apply(neoweaver._pending_opts or {})
     local api = require("neoweaver._internal.api")
@@ -99,7 +90,7 @@ end, {
     if not neoweaver._setup_done then
       return {}
     end
-    -- Need to get server names from pending opts or api config
+    -- Get server names from pending opts or api config
     local servers = {}
     if neoweaver._initialized then
       local api = require("neoweaver._internal.api")
@@ -130,7 +121,7 @@ vim.api.nvim_create_user_command("NeoweaverToggleDebug", with_ready(function()
   require("neoweaver._internal.api").toggle_debug()
 end), { desc = "Toggle debug logging" })
 
--- Explorer commands
+-- Explorer
 vim.api.nvim_create_user_command("NeoweaverExplorer", with_ready(function(opts)
   local explorer = require("neoweaver._internal.explorer")
   local action = opts.args ~= "" and opts.args or "toggle"
@@ -154,20 +145,18 @@ end), {
   desc = "Neoweaver collections explorer",
 })
 
--- Collections commands
+-- Collections
 vim.api.nvim_create_user_command("NeoweaverCollectionCreate", with_ready(function(opts)
   local collections = require("neoweaver._internal.collections")
-  
-  -- Parse args: name [parent_id]
   local args = vim.split(opts.args, "%s+")
   local name = args[1]
   local parent_id = args[2] and tonumber(args[2]) or nil
-  
+
   if not name or name == "" then
     vim.notify("Usage: :NeoweaverCollectionCreate <name> [parent_id]", vim.log.levels.WARN)
     return
   end
-  
+
   collections.create_collection(name, parent_id, function(collection, err)
     if err then
       vim.notify("Failed to create collection: " .. (err.message or vim.inspect(err)), vim.log.levels.ERROR)
@@ -179,17 +168,15 @@ end), { nargs = "+", desc = "Create new collection" })
 
 vim.api.nvim_create_user_command("NeoweaverCollectionRename", with_ready(function(opts)
   local collections = require("neoweaver._internal.collections")
-  
-  -- Parse args: id new_name
   local args = vim.split(opts.args, "%s+", { trimempty = true })
   local id = tonumber(args[1])
   local new_name = table.concat(vim.list_slice(args, 2), " ")
-  
+
   if not id or not new_name or new_name == "" then
     vim.notify("Usage: :NeoweaverCollectionRename <id> <new_name>", vim.log.levels.WARN)
     return
   end
-  
+
   collections.rename_collection(id, new_name, function(collection, err)
     if err then
       vim.notify("Failed to rename collection: " .. (err.message or vim.inspect(err)), vim.log.levels.ERROR)
@@ -202,18 +189,17 @@ end), { nargs = "+", desc = "Rename collection" })
 vim.api.nvim_create_user_command("NeoweaverCollectionDelete", with_ready(function(opts)
   local collections = require("neoweaver._internal.collections")
   local id = tonumber(opts.args)
-  
+
   if not id then
     vim.notify("Usage: :NeoweaverCollectionDelete <id>", vim.log.levels.WARN)
     return
   end
-  
-  -- Confirm deletion
+
   vim.ui.input({ prompt = "Delete collection " .. id .. "? (y/N): " }, function(confirm)
     if confirm ~= "y" and confirm ~= "Y" then
       return
     end
-    
+
     collections.delete_collection(id, function(success, err)
       if err then
         vim.notify("Failed to delete collection: " .. (err.message or vim.inspect(err)), vim.log.levels.ERROR)
@@ -226,16 +212,14 @@ end), { nargs = 1, desc = "Delete collection" })
 
 vim.api.nvim_create_user_command("NeoweaverCollectionUpdate", with_ready(function(opts)
   local collections = require("neoweaver._internal.collections")
-  
-  -- Parse args: id [displayName=value] [parentId=value] [description=value]
   local args = vim.split(opts.args, "%s+", { trimempty = true })
   local id = tonumber(args[1])
-  
+
   if not id then
     vim.notify("Usage: :NeoweaverCollectionUpdate <id> [displayName=value] [parentId=value]", vim.log.levels.WARN)
     return
   end
-  
+
   local update_opts = {}
   for i = 2, #args do
     local key, value = args[i]:match("^([^=]+)=(.+)$")
@@ -247,12 +231,12 @@ vim.api.nvim_create_user_command("NeoweaverCollectionUpdate", with_ready(functio
       update_opts.description = value
     end
   end
-  
+
   if vim.tbl_isempty(update_opts) then
     vim.notify("No update options provided", vim.log.levels.WARN)
     return
   end
-  
+
   collections.update_collection(id, update_opts, function(collection, err)
     if err then
       vim.notify("Failed to update collection: " .. (err.message or vim.inspect(err)), vim.log.levels.ERROR)

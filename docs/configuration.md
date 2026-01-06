@@ -94,6 +94,39 @@ Notes:
 - `title_template` is passed to `strftime()` when a quicknote saves. Use any valid strftime pattern.
 - `collection_id` and `note_type_id` use default values and are not yet user-configurable.
 
+### explorer
+
+- **Type:** table
+- **Default:** `{ show_notifications = true }`
+
+Controls explorer sidebar behavior.
+
+```lua
+explorer = {
+  show_notifications = true,  -- Show notifications on refresh
+}
+```
+
+### picker
+
+- **Type:** table
+- **Default:** see below
+
+Controls floating picker appearance (e.g., note list picker).
+
+```lua
+picker = {
+  size = {
+    width = 60,
+    height = 20,
+  },
+  position = "50%",
+  border = {
+    style = "rounded",
+  },
+}
+```
+
 ### metadata
 
 Metadata is automatically extracted and attached to notes when saving. No configuration required.

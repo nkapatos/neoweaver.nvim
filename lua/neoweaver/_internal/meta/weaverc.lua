@@ -1,16 +1,5 @@
----
---- weaverc.lua - Project-level configuration loader for MindWeaver
----
---- Loads .weaverc.json and .weaveroot.json to provide per-project plugin configuration:
---- - quicknotes: Override quicknotes settings (collection_id, note_type_id, etc.)
---- - api/server: Override server configuration
----
---- Root detection: .weaveroot or .weaveroot.json defines project boundary.
---- If not found, session cwd is used as fallback.
----
---- For metadata extraction, see extractor.lua which collects fields from
---- .weaverc.json, .weaveroot.json, and configured markers.
----
+--- Project-level configuration loader (.weaverc.json, .weaveroot.json)
+--- Config keys: quicknotes, api/server overrides
 ---@module 'neoweaver._internal.meta.weaverc'
 local M = {}
 
@@ -23,17 +12,15 @@ local parsers = require("neoweaver._internal.meta.parsers")
 ---@field [string] any Additional fields (treated as metadata by extractor)
 
 ---@class WeaverConfigCache
----@field data WeaverConfig|nil Parsed config data
----@field mtime number|nil File modification time (seconds since epoch)
+---@field data WeaverConfig|nil
+---@field mtime number|nil
 
--- Cache for loaded config per path
--- Structure: { [path] = WeaverConfigCache }
 ---@type table<string, WeaverConfigCache>
 local cache = {}
 
---- Find project root by walking up looking for .weaveroot or .weaveroot.json
---- @param start_dir? string Starting directory (defaults to cwd)
---- @return string root_dir Absolute path to project root (or start_dir if not found)
+--- Find project root
+--- @param start_dir? string
+--- @return string
 function M.find_project_root(start_dir)
   start_dir = start_dir or vim.fn.getcwd()
   local seen = {}
@@ -42,7 +29,6 @@ function M.find_project_root(start_dir)
   while dir ~= "/" and not seen[dir] do
     seen[dir] = true
 
-    -- Check for .weaveroot (empty file) or .weaveroot.json
     if vim.uv.fs_stat(dir .. "/.weaveroot") then
       return dir
     end
@@ -57,30 +43,26 @@ function M.find_project_root(start_dir)
     dir = parent
   end
 
-  -- No .weaveroot found, use start_dir (cwd) as fallback
+  -- Not found, use cwd as fallback
   return start_dir
 end
 
 --- Load and merge config from .weaveroot.json and .weaverc.json
---- Returns plugin configuration fields from both files (merged).
----
---- @param start_dir? string Starting directory (defaults to cwd)
---- @return WeaverConfig|nil config Merged config, or nil if no files found
+--- @param start_dir? string
+--- @return WeaverConfig|nil
 function M.load(start_dir)
   start_dir = start_dir or vim.fn.getcwd()
   local root_dir = M.find_project_root(start_dir)
 
   local result = {}
 
-  -- Load .weaveroot.json first (if exists)
   local weaveroot_path = root_dir .. "/.weaveroot.json"
   local weaveroot_data = M._load_file(weaveroot_path)
   if weaveroot_data then
     result = vim.tbl_deep_extend("force", result, weaveroot_data)
   end
 
-  -- Walk from start_dir to root_dir collecting .weaverc.json files
-  -- Deeper files override shallower ones
+  -- Collect .weaverc.json from start_dir to root_dir (deeper overrides shallower)
   local weaverc_files = {}
   local seen = {}
   local dir = start_dir
@@ -101,7 +83,7 @@ function M.load(start_dir)
     dir = parent
   end
 
-  -- Process in reverse order (shallowest first, so deeper overrides)
+  -- Process shallowest first so deeper overrides
   for i = #weaverc_files, 1, -1 do
     local weaverc_data = M._load_file(weaverc_files[i])
     if weaverc_data then
@@ -116,9 +98,9 @@ function M.load(start_dir)
   return result
 end
 
---- Load and cache a single config file
---- @param path string Absolute path to config file
---- @return table|nil Parsed data or nil
+--- Load and cache a config file
+--- @param path string
+--- @return table|nil
 function M._load_file(path)
   local stat = vim.uv.fs_stat(path)
   if not stat then
@@ -150,10 +132,8 @@ function M._load_file(path)
   return vim.deepcopy(data)
 end
 
---- Clear cache for a specific path or all cached data
---- Useful for testing or manual refresh
----
---- @param path? string Path to clear (if nil, clears all cache)
+--- Clear cache
+--- @param path? string Path to clear (nil = all)
 function M.clear_cache(path)
   if path then
     cache[path] = nil
@@ -162,8 +142,8 @@ function M.clear_cache(path)
   end
 end
 
---- Get current cache state (for debugging/inspection)
---- @return table<string, WeaverConfigCache> Current cache contents
+--- Get cache state (for debugging)
+--- @return table<string, WeaverConfigCache>
 function M._get_cache()
   return cache
 end

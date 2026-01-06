@@ -1,19 +1,10 @@
 ---@diagnostic disable: undefined-global
--- Pandoc Lua filter for neoweaver vimdoc preprocessing
--- This filter runs BEFORE panvimdoc.lua to prepare markdown for vimdoc conversion
---
--- Transformations:
--- 1. Inject professional header with MIT license, author, and date
--- 2. Convert markdown emphasis (** **) to plain text for better vimdoc readability
--- 3. Add license footer section
---
--- Usage: Applied automatically by task neoweaver:docs:gen:panvimdoc via filter chain
+--- Pandoc filter for vimdoc preprocessing (runs before panvimdoc.lua)
+--- Injects header with license info, removes markdown emphasis
 
 local stringify = pandoc.utils.stringify
 local date = os.date("%Y-%m-%d")
 
----Convert Emph or Strong elements to plain text
----Removes markdown emphasis for better vimdoc formatting
 ---@param el pandoc.Emph|pandoc.Strong
 ---@return pandoc.Str
 local function remove_emphasis(el)
@@ -21,7 +12,6 @@ local function remove_emphasis(el)
   return pandoc.Str(text)
 end
 
----Add header and license footer to the document
 ---@param doc pandoc.Pandoc
 ---@return pandoc.Pandoc
 local function add_header_and_footer(doc)
@@ -48,7 +38,6 @@ local function add_header_and_footer(doc)
     pandoc.Str("|neoweaver-license|)"),
   })
   
-  -- Create license section
   local license_blocks = {
     pandoc.Header(1, {pandoc.Str("License")}, {identifier = "neoweaver-license"}),
     pandoc.Para({pandoc.Str("MIT License")}),
@@ -76,11 +65,9 @@ local function add_header_and_footer(doc)
     }),
   }
   
-  -- Insert header at the beginning
   table.insert(doc.blocks, 1, header)
   table.insert(doc.blocks, 2, pandoc.HorizontalRule())
   
-  -- Append license at the end
   table.insert(doc.blocks, pandoc.HorizontalRule())
   for _, block in ipairs(license_blocks) do
     table.insert(doc.blocks, block)
@@ -89,15 +76,12 @@ local function add_header_and_footer(doc)
   return doc
 end
 
--- Return filter table with all transformations
 return {
   {
-    -- Remove emphasis from inline elements
     Emph = remove_emphasis,
     Strong = remove_emphasis,
   },
   {
-    -- Add header and license footer to complete document
     Pandoc = add_header_and_footer,
   }
 }

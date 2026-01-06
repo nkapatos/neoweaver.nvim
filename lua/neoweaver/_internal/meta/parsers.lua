@@ -1,19 +1,11 @@
----
---- parsers.lua - File format parsers for metadata extraction
----
---- Currently only used for parsing .weaveroot.json (via parse_json).
----
---- Additional parsers (TOML, YAML) and field extraction utilities are retained
---- for potential future use but not actively used by the metadata extractor.
---- These could be useful if we decide to support additional config file formats
---- or re-introduce marker file parsing.
----
+--- File format parsers for metadata extraction
+--- Only JSON is actively used; YAML/TOML retained for potential future use
 ---@module 'neoweaver._internal.meta.parsers'
 local M = {}
 
---- Detect file format from filename extension
---- @param filename string The filename to check
---- @return string|nil Format type ("json", "yaml", "toml") or nil if unsupported
+--- Detect format from filename
+--- @param filename string
+--- @return string|nil
 function M.detect_format(filename)
   local ext = filename:match("%.([^%.]+)$")
 
@@ -29,8 +21,8 @@ function M.detect_format(filename)
 end
 
 --- Read file contents
---- @param path string Absolute path to the file
---- @return string|nil Content as string or nil on error
+--- @param path string
+--- @return string|nil
 local function read_file(path)
   local content = vim.fn.readfile(path)
   if not content then
@@ -39,10 +31,10 @@ local function read_file(path)
   return table.concat(content, "\n")
 end
 
---- Resolve a dotted key path in a table (e.g. "project.name" -> value)
---- @param tbl table The table to search
---- @param key string The key path (possibly dotted like "project.name")
---- @return any|nil The resolved value or nil if not found
+--- Resolve dotted key path (e.g. "project.name")
+--- @param tbl table
+--- @param key string
+--- @return any|nil
 function M.resolve_dotted(tbl, key)
   if not key:find(".", 1, true) then
     return tbl[key]
@@ -58,9 +50,9 @@ function M.resolve_dotted(tbl, key)
   return value
 end
 
---- Parse JSON content
---- @param path string Absolute path to the file
---- @return table|nil Parsed data or nil on error
+--- Parse JSON file
+--- @param path string
+--- @return table|nil
 function M.parse_json(path)
   local content = read_file(path)
   if not content then
@@ -84,9 +76,9 @@ function M.parse_json(path)
   return decoded
 end
 
---- Parse YAML content
---- @param path string Absolute path to the file
---- @return table|nil Parsed data or nil on error
+--- Parse YAML file
+--- @param path string
+--- @return table|nil
 function M.parse_yaml(path)
   local content = read_file(path)
   if not content then
@@ -113,9 +105,9 @@ function M.parse_yaml(path)
   return decoded
 end
 
---- Parse TOML content
---- @param path string Absolute path to the file
---- @return table|nil Parsed data or nil on error
+--- Parse TOML file
+--- @param path string
+--- @return table|nil
 function M.parse_toml(path)
   local content = read_file(path)
   if not content then
@@ -142,10 +134,10 @@ function M.parse_toml(path)
   return decoded
 end
 
---- Parse a file based on its detected format
---- @param path string Absolute path to the file
---- @param format string|nil Format type ("json", "yaml", "toml") or nil to auto-detect
---- @return table|nil Parsed data or nil on error
+--- Parse file by format (auto-detect if not specified)
+--- @param path string
+--- @param format string|nil
+--- @return table|nil
 function M.parse(path, format)
   if not format then
     local filename = vim.fn.fnamemodify(path, ":t")
@@ -164,9 +156,9 @@ function M.parse(path, format)
 end
 
 --- Extract specific fields from parsed data
---- @param data table The parsed data
---- @param fields string[] List of field paths to extract (dotted notation supported)
---- @return table Extracted key-value pairs (field paths normalized to underscores)
+--- @param data table
+--- @param fields string[]
+--- @return table
 function M.extract_fields(data, fields)
   local result = {}
 
@@ -175,10 +167,8 @@ function M.extract_fields(data, fields)
     if raw_value ~= nil then
       local value = raw_value
       if type(value) == "table" then
-        -- Flatten simple tables
         value = value.name or vim.inspect(value):gsub("\n", " ")
       end
-      -- Normalize key: "project.name" -> "project_name"
       local key = field:gsub("%.", "_"):gsub("[^%w_]", "_")
       result[key] = tostring(value)
     end
@@ -187,11 +177,11 @@ function M.extract_fields(data, fields)
   return result
 end
 
---- Parse a file and extract specific fields
---- @param path string Absolute path to the file
---- @param fields string[] List of field paths to extract
---- @param format string|nil Format type or nil to auto-detect
---- @return table|nil Extracted key-value pairs or nil on error
+--- Parse and extract fields in one call
+--- @param path string
+--- @param fields string[]
+--- @param format string|nil
+--- @return table|nil
 function M.parse_and_extract(path, fields, format)
   local data = M.parse(path, format)
   if not data then

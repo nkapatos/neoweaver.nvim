@@ -1,39 +1,16 @@
----
---- diff.lua - Conflict resolution diff overlay for Neoweaver
----
---- Provides visual diff hunks, navigation, and multi-strategy conflict resolution
---- for server-side conflicts detected during save (412 Precondition Failed).
----
---- # Usage
----
---- local diff = require('neoweaver._internal.diff')
---- diff.setup()
---- diff.set_ref_text(bufnr, ref_lines)
---- diff.enable(bufnr)
---- diff.map_keys(bufnr)
----
---- # Conflict Resolution Strategies
----
---- When conflicts are detected:
---- - gh: Accept server version (discard local changes)
---- - gl: Keep local version (discard server changes)
---- - gb: Keep both versions (manual edit required)
---- - ]c / [c: Navigate between conflicts
---- - :w: Save and retry (warns if unresolved conflicts remain)
----
+--- Conflict resolution diff overlay for save conflicts (412 Precondition Failed)
+--- Keys: ]c/[c navigate, gh/gl/gb resolve (server/local/both)
 ---@class NeoweaverDiff
 local M = {}
 
---- Namespace for line highlights
 local ns_id = vim.api.nvim_create_namespace("NeoweaverDiff")
---- Namespace for virtual lines
 local overlay_ns_id = vim.api.nvim_create_namespace("NeoweaverDiffVirt")
 
---- Buffer-local state: stores ref_lines and hunks for each enabled buffer
+--- Buffer-local state
 ---@type table<integer, {ref_lines?: string[], hunks?: table[], enabled?: boolean}>
 local bufstate = {}
 
---- Setup highlight groups for diff overlays
+--- Setup highlight groups
 local function setup_highlight()
   vim.cmd("highlight default link NeoweaverDiffAdd DiffAdd")
   vim.cmd("highlight default link NeoweaverDiffChange DiffChange")
@@ -41,17 +18,17 @@ local function setup_highlight()
   vim.cmd("highlight default link NeoweaverDiffText DiffText")
 end
 
---- Clear all diff overlay extmarks from a buffer
+--- Clear all extmarks from buffer
 ---@param bufnr integer
 local function clear(bufnr)
   vim.api.nvim_buf_clear_namespace(bufnr, ns_id, 0, -1)
   vim.api.nvim_buf_clear_namespace(bufnr, overlay_ns_id, 0, -1)
 end
 
---- Compute diff hunks between reference and buffer lines
+--- Compute diff hunks between reference and buffer
 ---@param ref_lines string[]
 ---@param buf_lines string[]
----@return table[] hunks Array of hunk tables with resolved field
+---@return table[]
 local function compute_hunks(ref_lines, buf_lines)
   assert(type(ref_lines) == "table", "ref_lines must be a table of lines")
   assert(type(buf_lines) == "table", "buf_lines must be a table of lines")
@@ -82,7 +59,7 @@ local function compute_hunks(ref_lines, buf_lines)
   return hunks
 end
 
---- Draw diff overlay for a buffer (skips resolved hunks)
+--- Draw diff overlay (skips resolved hunks)
 ---@param bufnr integer
 local function draw(bufnr)
   clear(bufnr)
@@ -96,7 +73,6 @@ local function draw(bufnr)
   state.hunks = hunks
 
   for _, h in ipairs(hunks) do
-    -- Skip resolved hunks
     if h.resolved then
       goto continue
     end
@@ -111,7 +87,7 @@ local function draw(bufnr)
         })
       end
 
-      -- Show server lines as virtual lines if there are more ref lines than buf lines
+      -- Show server lines as virtual lines if ref has more lines
       local extra = h.ref_count - h.buf_count
       if extra > 0 then
         local virt_lines = {}
@@ -137,7 +113,7 @@ local function draw(bufnr)
         })
       end
 
-      -- For "change" hunks, show server lines above the hunk
+      -- For change hunks, show server lines above
       if h.type == "change" and h.ref_count > 0 then
         local virt_lines = {}
         table.insert(virt_lines, {
@@ -183,10 +159,9 @@ local function draw(bufnr)
   end
 end
 
---- Resolve hunk under cursor with given strategy
----@param bufnr integer Buffer number
----@param strategy "server"|"local"|"both" Resolution strategy
----@return boolean success True if hunk was resolved
+---@param bufnr integer
+---@param strategy "server"|"local"|"both"
+---@return boolean
 local function resolve_hunk(bufnr, strategy)
   local state = bufstate[bufnr]
   if not state or not state.hunks then
@@ -221,12 +196,9 @@ local function resolve_hunk(bufnr, strategy)
           vim.api.nvim_buf_set_lines(bufnr, from - 1, from - 1, false, new_lines)
         end
       elseif strategy == "local" then -- luacheck: ignore 542
-        -- Keep local version (no buffer changes needed, just mark resolved)
-        -- Local version is already in buffer
-        -- No additional buffer edits required
+        -- Keep local (no changes needed)
       elseif strategy == "both" then
-        -- Keep both versions with markers
-        -- Note: Format may be refined based on user feedback - See issue #10
+        -- Keep both with markers - See issue #10
         local both_lines = {}
 
         -- Add server version first
@@ -236,9 +208,6 @@ local function resolve_hunk(bufnr, strategy)
         end
 
         table.insert(both_lines, "--- LOCAL VERSION ---")
-        -- Note: Local lines are already in buffer at from..to
-        -- We insert server version above, local stays in place
-        -- User can manually edit to merge
 
         table.insert(both_lines, "--- END CONFLICT ---")
 
@@ -257,11 +226,10 @@ local function resolve_hunk(bufnr, strategy)
   return false
 end
 
---- Find hunk index in given direction
----@param hunks table[] List of hunks
----@param line integer Current line number
----@param dir integer Direction (1 for next, -1 for prev)
----@return integer|nil Index of hunk or nil
+---@param hunks table[]
+---@param line integer
+---@param dir integer (1=next, -1=prev)
+---@return integer|nil
 local function find_hunk_idx(hunks, line, dir)
   if not hunks or #hunks == 0 then
     return nil
@@ -302,13 +270,13 @@ local function find_hunk_idx(hunks, line, dir)
   return nil
 end
 
---- Sets up highlight groups for diff overlays. Call once at startup.
+--- Setup highlight groups (call once at startup)
 function M.setup()
   setup_highlight()
 end
 
---- Enables diff overlay for a buffer. Does nothing if buffer is invalid.
----@param bufnr integer Buffer number
+--- Enable diff overlay for buffer
+---@param bufnr integer
 function M.enable(bufnr)
   if not vim.api.nvim_buf_is_valid(bufnr) then
     return
@@ -319,16 +287,16 @@ function M.enable(bufnr)
   end
 end
 
---- Disables and clears the diff overlay for a buffer.
----@param bufnr integer Buffer number
+--- Disable and clear diff overlay
+---@param bufnr integer
 function M.disable(bufnr)
   bufstate[bufnr] = nil
   clear(bufnr)
 end
 
---- Sets the reference text (server version) for diffing against the buffer.
----@param bufnr integer Buffer number
----@param ref_lines string[] Array of lines to use as reference
+--- Set reference text (server version) for diffing
+---@param bufnr integer
+---@param ref_lines string[]
 function M.set_ref_text(bufnr, ref_lines)
   if not vim.api.nvim_buf_is_valid(bufnr) then
     return
@@ -341,8 +309,8 @@ function M.set_ref_text(bufnr, ref_lines)
   draw(bufnr)
 end
 
---- Moves the cursor to the start of the next unresolved diff hunk.
----@param bufnr integer Buffer number
+--- Move to next unresolved hunk
+---@param bufnr integer
 function M.goto_next_hunk(bufnr)
   local state = bufstate[bufnr]
   if not state or not state.hunks then
@@ -358,8 +326,8 @@ function M.goto_next_hunk(bufnr)
   end
 end
 
---- Moves the cursor to the start of the previous unresolved diff hunk.
----@param bufnr integer Buffer number
+--- Move to previous unresolved hunk
+---@param bufnr integer
 function M.goto_prev_hunk(bufnr)
   local state = bufstate[bufnr]
   if not state or not state.hunks then
@@ -375,27 +343,27 @@ function M.goto_prev_hunk(bufnr)
   end
 end
 
---- Accept server version for hunk under cursor (discard local changes)
----@param bufnr integer Buffer number
+--- Accept server version for hunk under cursor
+---@param bufnr integer
 function M.apply_hunk(bufnr)
   resolve_hunk(bufnr, "server")
 end
 
---- Keep local version for hunk under cursor (discard server changes)
----@param bufnr integer Buffer number
+--- Keep local version for hunk under cursor
+---@param bufnr integer
 function M.reject_hunk(bufnr)
   resolve_hunk(bufnr, "local")
 end
 
---- Keep both versions for hunk under cursor (requires manual edit)
----@param bufnr integer Buffer number
+--- Keep both versions for hunk under cursor
+---@param bufnr integer
 function M.accept_both(bufnr)
   resolve_hunk(bufnr, "both")
 end
 
---- Returns the number of unresolved conflicts in buffer
----@param bufnr integer Buffer number
----@return integer count Number of unresolved conflicts
+--- Count unresolved conflicts
+---@param bufnr integer
+---@return integer
 function M.get_conflict_count(bufnr)
   local state = bufstate[bufnr]
   if not state or not state.hunks then
@@ -411,9 +379,9 @@ function M.get_conflict_count(bufnr)
   return count
 end
 
---- Returns conflict summary for statusline integration
----@param bufnr integer Buffer number
----@return table|nil summary { icon, text, hl_group } or nil if no conflicts
+--- Get conflict summary for statusline
+---@param bufnr integer
+---@return table|nil { icon, text, hl_group }
 function M.get_status_summary(bufnr)
   local count = M.get_conflict_count(bufnr)
   if count == 0 then
@@ -427,17 +395,15 @@ function M.get_status_summary(bufnr)
   }
 end
 
---- Returns true if the buffer has unresolved conflicts
----@param bufnr integer Buffer number
----@return boolean has_conflicts True if unresolved conflicts exist
+--- Check for unresolved conflicts
+---@param bufnr integer
+---@return boolean
 function M.has_unresolved_hunks(bufnr)
   return M.get_conflict_count(bufnr) > 0
 end
 
---- Sets up buffer-local keymaps for diff navigation and resolution
---- ]c / [c: next/prev hunk
---- gh: accept server, gl: keep local, gb: keep both
----@param bufnr integer Buffer number
+--- Setup buffer-local keymaps for diff navigation/resolution
+---@param bufnr integer
 function M.map_keys(bufnr)
   vim.keymap.set("n", "]c", function()
     M.goto_next_hunk(bufnr)

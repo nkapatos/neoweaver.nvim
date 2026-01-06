@@ -1,28 +1,16 @@
----
---- collections.lua - Collection management for Neoweaver (v3)
---- Handles collection listing, creation, deletion, and hierarchy management
----
---- TODO: When picker refactor PoC is complete, move the following to collections/view.lua:
---- - build_tree_nodes() -> ViewSource.load_data
---- - handle_create() -> ViewSource.actions.create
---- - handle_rename() -> ViewSource.actions.rename
---- - handle_delete() -> ViewSource.actions.delete
---- - build_collection_nodes_recursive() -> internal helper in view.lua
----
+--- Collection management - listing, creation, deletion, hierarchy
 local api = require("neoweaver._internal.api")
 
 local M = {}
 
---- List all collections
---- Returns flat list with parentId for building hierarchy
 ---@param opts? { pageSize?: number, pageToken?: string }
----@param cb fun(collections: table[]|nil, error: table|nil) Callback with collections array or error
+---@param cb fun(collections: table[]|nil, error: table|nil)
 function M.list_collections(opts, cb)
   opts = opts or {}
 
   ---@type mind.v3.ListCollectionsRequest
   local req = {
-    pageSize = opts.pageSize or 50, -- Default 50 collections (server max is 100)
+    pageSize = opts.pageSize or 50,
     pageToken = opts.pageToken or "",
   }
 
@@ -32,46 +20,36 @@ function M.list_collections(opts, cb)
       return
     end
 
-    -- v3 API: Response is mind.v3.ListCollectionsResponse directly
     ---@type mind.v3.ListCollectionsResponse
     local list_res = res.data
     local collections = list_res.collections or {}
-
-    -- Note: Automatic pagination not implemented - See issue #7
-    -- API includes: nextPageToken, totalSize
-    -- Could recursively fetch remaining pages in background
-
+    -- Pagination not implemented - See issue #7
     cb(collections, nil)
   end)
 end
 
---- List collections with note titles
---- Orchestrates two API calls: collections + notes, then returns combined data
---- Returns: { collections: table[], notes_by_collection: table<number, table[]> }
+--- List collections with note titles (two API calls: collections + notes)
 ---@param opts? { pageSize?: number }
 ---@param cb fun(data: { collections: table[], notes_by_collection: table }|nil, error: table|nil)
 function M.list_collections_with_notes(opts, cb)
   opts = opts or {}
 
-  -- Step 1: Fetch collections
   M.list_collections(opts, function(collections, err)
     if err then
       cb(nil, err)
       return
     end
 
-    -- Normalize string IDs to numbers (protobuf int64 serializes as strings in JSON)
     for _, collection in ipairs(collections) do
       collection.id = tonumber(collection.id)
       collection.parentId = collection.parentId and tonumber(collection.parentId) or nil
       collection.position = collection.position and tonumber(collection.position) or nil
     end
 
-    -- Step 2: Fetch all notes with field masking (only id, title, collectionId)
     ---@type mind.v3.ListNotesRequest
     local notes_req = {
-      pageSize = opts.pageSize or 100, -- Fetch up to 100 notes (can adjust or paginate later)
-      fieldMask = "id,title,collectionId", -- Only request fields needed for tree building
+      pageSize = opts.pageSize or 100,
+      fieldMask = "id,title,collectionId",
     }
 
     api.notes.list(notes_req, function(notes_res)
@@ -84,13 +62,12 @@ function M.list_collections_with_notes(opts, cb)
       local notes_list = notes_res.data
       local notes = notes_list.notes or {}
 
-      -- Normalize string IDs to numbers (protobuf int64 serializes as strings in JSON)
       for _, note in ipairs(notes) do
         note.id = tonumber(note.id)
         note.collectionId = tonumber(note.collectionId)
       end
 
-      -- Step 3: Build hashmap - group notes by collection_id
+      -- Group notes by collection_id
       local notes_by_collection = {}
       for _, note in ipairs(notes) do
         local cid = note.collectionId
@@ -100,14 +77,13 @@ function M.list_collections_with_notes(opts, cb)
         table.insert(notes_by_collection[cid], note)
       end
 
-      -- Step 4: Sort notes alphabetically by title within each collection
+      -- Sort notes alphabetically by title
       for _, note_list in pairs(notes_by_collection) do
         table.sort(note_list, function(a, b)
           return a.title < b.title
         end)
       end
 
-      -- Step 5: Return combined data
       cb({
         collections = collections,
         notes_by_collection = notes_by_collection,
@@ -117,9 +93,9 @@ function M.list_collections_with_notes(opts, cb)
 end
 
 --- Create a new collection
----@param name string Collection display name
----@param parent_id? number Parent collection ID (nil for root)
----@param cb fun(collection: table|nil, error: table|nil) Callback with created collection or error
+---@param name string
+---@param parent_id? number
+---@param cb fun(collection: table|nil, error: table|nil)
 function M.create_collection(name, parent_id, cb)
   ---@type mind.v3.CreateCollectionRequest
   local req = {
@@ -143,8 +119,8 @@ function M.create_collection(name, parent_id, cb)
 end
 
 --- Delete a collection
----@param collection_id number Collection ID to delete
----@param cb fun(success: boolean, error: table|nil) Callback
+---@param collection_id number
+---@param cb fun(success: boolean, error: table|nil)
 function M.delete_collection(collection_id, cb)
   ---@type mind.v3.DeleteCollectionRequest
   local req = {
@@ -161,12 +137,11 @@ function M.delete_collection(collection_id, cb)
   end)
 end
 
---- Update a collection (rename and/or move)
----@param collection_id number Collection ID to update
+--- Update a collection (rename/move)
+---@param collection_id number
 ---@param opts { displayName?: string, parentId?: number, description?: string, position?: number }
----@param cb fun(collection: table|nil, error: table|nil) Callback
+---@param cb fun(collection: table|nil, error: table|nil)
 function M.update_collection(collection_id, opts, cb)
-  -- First fetch current collection to get current values
   api.collections.get({ id = collection_id }, function(get_res)
     if get_res.error then
       cb(nil, get_res.error)
@@ -214,23 +189,21 @@ function M.update_collection(collection_id, opts, cb)
 end
 
 --- Rename a collection (convenience wrapper around update_collection)
----@param collection_id number Collection ID to rename
----@param new_name string New display name
----@param cb fun(collection: table|nil, error: table|nil) Callback
+---@param collection_id number
+---@param new_name string
+---@param cb fun(collection: table|nil, error: table|nil)
 function M.rename_collection(collection_id, new_name, cb)
   M.update_collection(collection_id, { displayName = new_name }, cb)
 end
 
---- Build generic tree nodes from collections and notes data
---- Recursive function that builds collection hierarchy with notes
----@param collections_data table[] Flat list of collections
----@param notes_by_collection table<number, table[]> Notes grouped by collection_id
----@param parent_id number|nil Parent collection ID (nil for roots)
----@return table[] Array of generic tree nodes
+--- Build tree nodes from collections and notes (recursive)
+---@param collections_data table[]
+---@param notes_by_collection table<number, table[]>
+---@param parent_id number|nil
+---@return table[]
 local function build_collection_nodes_recursive(collections_data, notes_by_collection, parent_id)
   local nodes = {}
 
-  -- Find all collections with the given parent_id
   for _, collection in ipairs(collections_data) do
     if collection.parentId == parent_id then
       local children = {}
@@ -274,11 +247,9 @@ local function build_collection_nodes_recursive(collections_data, notes_by_colle
   return nodes
 end
 
---- Build tree nodes for collections mode (with server root)
---- Fetches collections and notes, then builds generic tree node structure
+--- Build tree nodes with server root wrapper
 ---@param callback fun(nodes: table[]|nil, error: table|nil, stats: { collections: number, notes: number }|nil)
 function M.build_tree_nodes(callback)
-  -- Fetch collections with notes
   M.list_collections_with_notes({}, function(data, err)
     if err then
       callback(nil, err, nil)
@@ -291,7 +262,7 @@ function M.build_tree_nodes(callback)
       return
     end
 
-    -- Build collection hierarchy
+    -- Build hierarchy
     local collection_nodes = build_collection_nodes_recursive(data.collections, data.notes_by_collection or {}, nil)
 
     -- Wrap in server node
@@ -338,21 +309,17 @@ end
 ---@param node table Tree node
 ---@param refresh_callback fun() Callback to refresh tree after action
 function M.handle_create(node, refresh_callback)
-  -- Allow creating collections under:
-  -- 1. Server nodes (creates root-level collection with no parent)
-  -- 2. Collection nodes (creates child collection)
   if node.type ~= "server" and node.type ~= "collection" then
     vim.notify("Can only create collections under servers or other collections", vim.log.levels.WARN)
     return
   end
 
-  -- Determine parent_id: nil for server nodes, collection_id for collection nodes
+  -- parent_id: nil for server nodes, collection_id for collection nodes
   local parent_id = nil
   if node.type == "collection" then
     parent_id = node.collection_id
   end
 
-  -- Prompt for collection name
   vim.ui.input({ prompt = "New collection name: " }, function(name)
     if not name or name == "" then
       return
@@ -371,22 +338,19 @@ function M.handle_create(node, refresh_callback)
 end
 
 --- Handle collection rename action
----@param node table Tree node
----@param refresh_callback fun() Callback to refresh tree after action
+---@param node table
+---@param refresh_callback fun()
 function M.handle_rename(node, refresh_callback)
-  -- Only allow renaming collections
   if node.type ~= "collection" then
     vim.notify("Can only rename collections", vim.log.levels.WARN)
     return
   end
 
-  -- Don't allow renaming system collections
   if node.is_system then
     vim.notify("Cannot rename system collections", vim.log.levels.WARN)
     return
   end
 
-  -- Prompt for new name
   vim.ui.input({ prompt = "Rename to: ", default = node.name }, function(new_name)
     if not new_name or new_name == "" or new_name == node.name then
       return
@@ -405,22 +369,19 @@ function M.handle_rename(node, refresh_callback)
 end
 
 --- Handle collection delete action
----@param node table Tree node
----@param refresh_callback fun() Callback to refresh tree after action
+---@param node table
+---@param refresh_callback fun()
 function M.handle_delete(node, refresh_callback)
-  -- Only allow deleting collections
   if node.type ~= "collection" then
     vim.notify("Can only delete collections", vim.log.levels.WARN)
     return
   end
 
-  -- Don't allow deleting system collections
   if node.is_system then
     vim.notify("Cannot delete system collections", vim.log.levels.WARN)
     return
   end
 
-  -- Confirm deletion
   vim.ui.input({
     prompt = "Delete collection '" .. node.name .. "'? (y/N): ",
   }, function(confirm)

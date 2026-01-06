@@ -1,4 +1,4 @@
---- explorer/init.lua - Sidebar host for picker views
+--- Sidebar host for picker views
 
 local Split = require("nui.split")
 local manager = require("neoweaver._internal.picker.manager")
