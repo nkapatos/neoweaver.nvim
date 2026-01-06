@@ -8,6 +8,8 @@ M.defaults = {
   metadata = {},
   explorer = {
     show_notifications = true,
+    position = "left", -- "left" or "right"
+    size = 30,
   },
   quicknotes = { -- See issue #13
     title_template = "%Y%m%d%H%M",
