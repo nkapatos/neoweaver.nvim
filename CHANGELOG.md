@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.1.11](https://github.com/nkapatos/neoweaver.nvim/compare/v0.1.10...v0.1.11) (2026-01-06)
+
+
+### Features
+
+* **events:** add internal event bus for cross-component coordination ([b48f335](https://github.com/nkapatos/neoweaver.nvim/commit/b48f335ab7a31e1c6a9a7bbd77ae2af381885d4a))
+* lazy loading with health check gate on first use ([51be7a5](https://github.com/nkapatos/neoweaver.nvim/commit/51be7a56d0df160d963e4846dc5505e83f3dc672))
+* **meta:** simplify metadata extraction to runtime context ([#28](https://github.com/nkapatos/neoweaver.nvim/issues/28)) ([1762e11](https://github.com/nkapatos/neoweaver.nvim/commit/1762e11f8d40f37b8e5d6c1ac402307f5e17effb))
+
+
+### Bug Fixes
+
+* **buffer:** correct split direction based on explorer position ([f021a26](https://github.com/nkapatos/neoweaver.nvim/commit/f021a2686db5022a6bcd95908aa427cf88737863))
+* **buffer:** prevent hijacking picker window when opening notes ([09055b0](https://github.com/nkapatos/neoweaver.nvim/commit/09055b0678fc375db2d791312c2b84b35aa76f3d))
+* **buffer:** restore explorer width after creating vsplit ([3e035b0](https://github.com/nkapatos/neoweaver.nvim/commit/3e035b039933f16d441b961ed53e6ec0e1f9678c))
+* **ci:** track doc/ directory for generated help files ([3651556](https://github.com/nkapatos/neoweaver.nvim/commit/36515563dc2d2c409a1949a985b79757ff8d277c))
+* **tasks:** add missing deps to docs:gen and docs:tags ([4d15e7b](https://github.com/nkapatos/neoweaver.nvim/commit/4d15e7b3319d083e7e7fb3a015a81bec6eac988e))
+
+
+### Documentation
+
+* **api:** improve mini.doc annotations with proper tags and examples ([9198876](https://github.com/nkapatos/neoweaver.nvim/commit/9198876300082bad813a4ce2fb0e6bc2484c150d))
+* clean up comments, annotations, and restructure documentation ([dba7d1a](https://github.com/nkapatos/neoweaver.nvim/commit/dba7d1a8c67de5bb91bd1d0cd7174e40150c459c))
+* fix vimdoc generation and README links ([fdbe4d6](https://github.com/nkapatos/neoweaver.nvim/commit/fdbe4d6bec27bdf04e277f35f75d2175c44871ef))
+
+
+### Maintenance
+
+* untrack .task checksum, add panvimdoc-ignore to README ([a1adf4c](https://github.com/nkapatos/neoweaver.nvim/commit/a1adf4cf697515cc909173b06b1aca0f4f0c9f1f))
+
+
+### Refactoring
+
+* **explorer:** picker owns buffer to fix ghost artifacts ([#26](https://github.com/nkapatos/neoweaver.nvim/issues/26)) ([c5c7f59](https://github.com/nkapatos/neoweaver.nvim/commit/c5c7f59cd47be75808f8b405e8a943076566699f))
+* remove built-in keymaps, let users define their own ([e5d8cc4](https://github.com/nkapatos/neoweaver.nvim/commit/e5d8cc487c07c01b4baf6f577e2063437d66a74c))
+
 ## [0.1.10](https://github.com/nkapatos/neoweaver.nvim/compare/v0.1.9...v0.1.10) (2025-12-28)
 
 
