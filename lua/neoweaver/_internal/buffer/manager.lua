@@ -89,6 +89,8 @@ local function find_target_window()
       local split_cmd = explorer.get_position() == "left" and "rightbelow vsplit" or "leftabove vsplit"
       vim.cmd(split_cmd)
       local new_win = vim.api.nvim_get_current_win()
+      -- Restore explorer width after split
+      vim.api.nvim_win_set_width(win, explorer.get_size())
       return new_win
     end
   end

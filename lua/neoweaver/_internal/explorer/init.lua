@@ -175,4 +175,9 @@ function M.get_position()
   return nw_config.get().explorer.position
 end
 
+---@return number
+function M.get_size()
+  return nw_config.get().explorer.size
+end
+
 return M
