@@ -2,6 +2,7 @@
 
 local Split = require("nui.split")
 local manager = require("neoweaver._internal.picker.manager")
+local nw_config = require("neoweaver._internal.config")
 
 local M = {}
 
@@ -12,13 +13,6 @@ local state = {
   current_view = nil,
   ---@type NuiSplit|nil
   split = nil,
-}
-
-local config = {
-  window = {
-    position = "left",
-    size = 30,
-  },
 }
 
 local WIN_OPTIONS = {
@@ -39,10 +33,11 @@ end
 
 ---@return NuiSplit
 local function create_split()
+  local cfg = nw_config.get().explorer
   return Split({
     relative = "editor",
-    position = config.window.position,
-    size = config.window.size,
+    position = cfg.position,
+    size = cfg.size,
     win_options = WIN_OPTIONS,
   })
 end
@@ -173,6 +168,11 @@ end
 ---@return boolean
 function M.is_mounted()
   return state.split ~= nil and state.split._.mounted
+end
+
+---@return "left"|"right"
+function M.get_position()
+  return nw_config.get().explorer.position
 end
 
 return M

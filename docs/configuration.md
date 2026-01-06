@@ -97,13 +97,15 @@ Notes:
 ### explorer
 
 - **Type:** table
-- **Default:** `{ show_notifications = true }`
+- **Default:** `{ show_notifications = true, position = "left", size = 30 }`
 
-Controls explorer sidebar behavior.
+Controls explorer sidebar behavior and appearance.
 
 ```lua
 explorer = {
   show_notifications = true,  -- Show notifications on refresh
+  position = "left",          -- "left" or "right"
+  size = 30,                  -- Width of the explorer sidebar
 }
 ```
 
@@ -200,6 +202,10 @@ Note: `.weaverc.json` does NOT contribute to note metadata. Only `.weaveroot.jso
 ```lua
 require('neoweaver').setup({
   allow_multiple_empty_notes = true,
+  explorer = {
+    position = "left",
+    size = 30,
+  },
   quicknotes = {
     title_template = "%Y%m%d%H%M",
     popup = {
