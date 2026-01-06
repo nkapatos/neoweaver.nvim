@@ -1,5 +1,24 @@
---- Neoweaver - Neovim client for MindWeaver
----@module neoweaver
+--- Neovim client for MindWeaver
+---
+--- Neoweaver provides note management capabilities by communicating with
+--- the MindWeaver server over the Connect RPC API. Create, edit, and
+--- organize notes directly within Neovim.
+---
+--- Quick start: >lua
+---   require('neoweaver').setup({
+---     api = {
+---       servers = {
+---         local = { url = "http://localhost:9421", default = true },
+---       },
+---     },
+---   })
+--- <
+---
+--- For full documentation, see |neoweaver|.
+---
+---@tag neoweaver-lua-api
+---@seealso |neoweaver| |neoweaver-configuration| |neoweaver-commands|
+
 local M = {
   _pending_opts = nil,
   _setup_done = false,
@@ -7,8 +26,19 @@ local M = {
 }
 
 --- Configure the plugin. Initialization is deferred until first use.
---- See docs/configuration.md for options.
----@param opts? neoweaver.Config
+---
+---@tag neoweaver.setup()
+---@param opts? neoweaver.Config Plugin configuration
+---@seealso |neoweaver-configuration|
+---@usage >lua
+---   require('neoweaver').setup({
+---     api = {
+---       servers = {
+---         local = { url = "http://localhost:9421", default = true },
+---       },
+---     },
+---   })
+--- <
 function M.setup(opts)
   M._pending_opts = opts or {}
   M._setup_done = true
@@ -34,10 +64,17 @@ local function do_init()
   require("neoweaver._internal.tags.view")
 end
 
---- Single entry point for all plugin functionality.
+--- Entry point for all plugin functionality.
 --- Runs deferred init, checks server health, shows server selector if unhealthy.
+---
+---@tag neoweaver.ensure_ready()
 ---@param on_ready fun() Called when plugin is ready
----@param on_cancel? fun() Called when user cancels server selection
+---@param on_cancel? fun() Called if user cancels server selection
+---@usage >lua
+---   require('neoweaver').ensure_ready(function()
+---     vim.cmd('NeoweaverNotesList')
+---   end)
+--- <
 function M.ensure_ready(on_ready, on_cancel)
   on_cancel = on_cancel or function() end
 
@@ -91,11 +128,17 @@ function M.ensure_ready(on_ready, on_cancel)
   check_health()
 end
 
+--- Get the current configuration.
+---
+---@tag neoweaver.get_config()
 ---@return neoweaver.Config
 function M.get_config()
   return require("neoweaver._internal.config").get()
 end
 
+--- Get the explorer instance for programmatic access.
+---
+---@tag neoweaver.get_explorer()
 ---@return neoweaver.Explorer
 function M.get_explorer()
   return require("neoweaver._internal.explorer")
