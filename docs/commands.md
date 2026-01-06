@@ -1,17 +1,43 @@
 # Commands
 
-Neoweaver provides the following commands for note management:
+Neoweaver provides commands for managing notes, quicknotes, collections, and server configuration.
 
-| Command                         | Description                                    |
-| ------------------------------- | ---------------------------------------------- |
-| `:NeoweaverNotesList`           | Fetch and display the first page of notes     |
-| `:NeoweaverNotesOpen`           | Open a note by ID (prompts for ID)            |
-| `:NeoweaverNotesNew`            | Create a new untitled note                     |
-| `:NeoweaverNotesQuick`          | Open an ephemeral quicknote capture window     |
-| `:NeoweaverNotesTitle`          | Edit the title of the currently active note   |
-| `:NeoweaverNotesDelete`         | Delete a note by ID (prompts for ID)          |
-| `:NeoweaverServerUse`           | Switch to a configured backend server          |
-| `:NeoweaverToggleDebug`         | Toggle API debug notifications on/off          |
+## Notes
+
+| Command | Arguments | Description |
+|---------|-----------|-------------|
+| `:NeoweaverNotesList` | - | List notes in picker |
+| `:NeoweaverNotesOpen` | `<id>` | Open note by ID |
+| `:NeoweaverNotesNew` | - | Create new untitled note |
+| `:NeoweaverNotesNewWithTitle` | - | Create note with title prompt |
+| `:NeoweaverNotesTitle` | - | Edit current note title |
+| `:NeoweaverNotesDelete` | `<id>` | Delete note by ID |
+| `:NeoweaverNotesMeta` | `[id]` | Edit note metadata (WIP - See issue #15) |
+
+## Quicknotes
+
+| Command | Arguments | Description |
+|---------|-----------|-------------|
+| `:NeoweaverNotesQuick` | - | Capture quicknote in floating window |
+| `:NeoweaverNotesQuickAmend` | - | Amend last quicknote (WIP - See issue #14) |
+| `:NeoweaverNotesQuickList` | - | List quicknotes (WIP - See issue #14) |
+
+## Explorer & Collections
+
+| Command | Arguments | Description |
+|---------|-----------|-------------|
+| `:NeoweaverExplorer` | `[action]` | Explorer (open/close/toggle/focus) |
+| `:NeoweaverCollectionCreate` | `<name> [parent_id]` | Create new collection |
+| `:NeoweaverCollectionRename` | `<id> <new_name>` | Rename collection |
+| `:NeoweaverCollectionDelete` | `<id>` | Delete collection (prompts for confirmation) |
+| `:NeoweaverCollectionUpdate` | `<id> [key=val...]` | Update collection fields |
+
+## Server
+
+| Command | Arguments | Description |
+|---------|-----------|-------------|
+| `:NeoweaverServerUse` | `<name>` | Switch to configured server |
+| `:NeoweaverToggleDebug` | - | Toggle debug logging |
 
 ## Usage Examples
 
@@ -21,25 +47,54 @@ Neoweaver provides the following commands for note management:
 " Create a new untitled note
 :NeoweaverNotesNew
 
-" Capture a quicknote
+" Create a note with title prompt
+:NeoweaverNotesNewWithTitle
+
+" Capture a quicknote (floating window)
 :NeoweaverNotesQuick
 ```
 
 ### Managing Notes
 
 ```vim
-" List all notes
+" List all notes in picker
 :NeoweaverNotesList
 
-" Open a specific note
-:NeoweaverNotesOpen
-" Then enter the note ID when prompted
+" Open a specific note by ID
+:NeoweaverNotesOpen 42
 
 " Edit the title of the current note
 :NeoweaverNotesTitle
 
-" Delete a note
-:NeoweaverNotesDelete
+" Delete a note by ID
+:NeoweaverNotesDelete 42
+```
+
+### Explorer & Collections
+
+```vim
+" Toggle the explorer panel
+:NeoweaverExplorer
+
+" Open/close/focus explorer explicitly
+:NeoweaverExplorer open
+:NeoweaverExplorer close
+:NeoweaverExplorer focus
+
+" Create a new collection
+:NeoweaverCollectionCreate MyCollection
+
+" Create a nested collection (with parent ID)
+:NeoweaverCollectionCreate SubCollection 5
+
+" Rename a collection
+:NeoweaverCollectionRename 5 NewName
+
+" Update collection fields
+:NeoweaverCollectionUpdate 5 displayName=NewName parentId=2
+
+" Delete a collection
+:NeoweaverCollectionDelete 5
 ```
 
 ### Server Management

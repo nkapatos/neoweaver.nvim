@@ -1,54 +1,24 @@
 # Keymaps
 
-## Default Keymaps
+Neoweaver does not set any keymaps by default. See [Installation](installation.md#keymaps) for setup instructions.
 
-When keymaps are enabled (`keymaps = { enabled = true }`), the following default mappings are available:
-
-| Mapping        | Command                      | Action                          |
-| -------------- | ---------------------------- | ------------------------------- |
-| `<leader>nl`   | `:NeoweaverNotesList`        | List all notes                  |
-| `<leader>no`   | `:NeoweaverNotesOpen`        | Open note (prompts for ID)      |
-| `<leader>nn`   | `:NeoweaverNotesNew`         | Create new untitled note        |
-| `<leader>nt`   | `:NeoweaverNotesTitle`       | Edit current note title         |
-| `<leader>nd`   | `:NeoweaverNotesDelete`      | Delete note (prompts for ID)    |
-| `<leader>qn`   | `:NeoweaverNotesQuick`       | Capture quicknote               |
-
-## Customizing Keymaps
-
-You can override individual keymaps or disable them entirely:
-
-**Custom mappings:**
+## Suggested Keymaps
 
 ```lua
-require('neoweaver').setup({
-  keymaps = {
-    enabled = true,
-    notes = {
-      list = "<leader>fn",      -- Changed from <leader>nl
-      open = "<leader>fo",      -- Changed from <leader>no
-      new = "<leader>fc",       -- Changed from <leader>nn
-      new_with_title = "<leader>fC",
-      title = "<leader>fr",
-      delete = "<leader>fx",
-    },
-  },
-})
+-- Notes
+vim.keymap.set("n", "<leader>nl", "<cmd>NeoweaverNotesList<cr>", { desc = "List notes" })
+vim.keymap.set("n", "<leader>nn", "<cmd>NeoweaverNotesNew<cr>", { desc = "New note" })
+vim.keymap.set("n", "<leader>nN", "<cmd>NeoweaverNotesNewWithTitle<cr>", { desc = "New note with title" })
+vim.keymap.set("n", "<leader>nt", "<cmd>NeoweaverNotesTitle<cr>", { desc = "Edit note title" })
+
+-- Quicknotes
+vim.keymap.set("n", "<leader>qn", "<cmd>NeoweaverNotesQuick<cr>", { desc = "Quick note" })
+vim.keymap.set("n", "<leader>qa", "<cmd>NeoweaverNotesQuickAmend<cr>", { desc = "Amend quicknote" })
+
+-- Explorer
+vim.keymap.set("n", "<leader>ne", "<cmd>NeoweaverExplorer<cr>", { desc = "Toggle explorer" })
 ```
 
-**Disable built-in keymaps:**
+## All Available Commands
 
-```lua
-require('neoweaver').setup({
-  keymaps = {
-    enabled = false,  -- No keymaps created
-  },
-})
-```
-
-Then create your own keymaps:
-
-```lua
-vim.keymap.set('n', '<leader>fn', ':NeoweaverNotesList<CR>', { desc = 'List notes' })
-vim.keymap.set('n', '<leader>fc', ':NeoweaverNotesNew<CR>', { desc = 'Create note' })
--- etc.
-```
+See [Commands](commands.md) for the complete list of commands you can map.

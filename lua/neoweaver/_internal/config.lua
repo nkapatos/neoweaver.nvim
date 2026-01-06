@@ -47,33 +47,6 @@ M.defaults = {
       style = "rounded",
     },
   },
-
-  keymaps = {
-
-    enabled = false, -- Keymaps are opt-in
-    notes = {
-      -- Standard notes (using <leader>n* for "notes")
-      list = "<leader>nl",
-      find = "<leader>nf", -- Find notes by title (search picker)
-      open = "<leader>no",
-      edit = "<leader>ne", -- Alias for open
-      new = "<leader>nn",
-      new_with_title = "<leader>nN",
-      title = "<leader>nt",
-      delete = "<leader>nd",
-      meta = "<leader>nm", -- Note: Not implemented - See issue #15
-    },
-    quicknotes = {
-      -- Quicknotes (using <leader>q* for "quick")
-      new = "<leader>qn",
-      list = "<leader>ql",
-      amend = "<leader>qa",
-      -- Fast access alternatives (using <leader>.* for rapid capture)
-      new_fast = "<leader>.n",
-      amend_fast = "<leader>.a",
-      list_fast = "<leader>.l",
-    },
-  },
 }
 
 M.current = vim.deepcopy(M.defaults)
@@ -104,19 +77,6 @@ function M.apply(opts)
   -- Merge picker configuration
   if opts.picker ~= nil then
     M.current.picker = vim.tbl_deep_extend("force", M.current.picker, opts.picker)
-  end
-
-  -- Merge keymap configuration
-  if opts.keymaps ~= nil then
-    if opts.keymaps.enabled ~= nil then
-      M.current.keymaps.enabled = opts.keymaps.enabled
-    end
-    if opts.keymaps.notes ~= nil then
-      M.current.keymaps.notes = vim.tbl_extend("force", M.current.keymaps.notes, opts.keymaps.notes)
-    end
-    if opts.keymaps.quicknotes ~= nil then
-      M.current.keymaps.quicknotes = vim.tbl_extend("force", M.current.keymaps.quicknotes, opts.keymaps.quicknotes)
-    end
   end
 end
 

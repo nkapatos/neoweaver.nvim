@@ -59,37 +59,6 @@ api = {
 }
 ```
 
-### keymaps
-
-- **Type:** table
-- **Default:** disabled
-
-Enable built-in default keymaps by passing `keymaps = { enabled = true }`. You can override any mapping by providing the `notes` table.
-
-**Enable defaults:**
-
-```lua
-keymaps = {
-  enabled = true,
-}
-```
-
-**Customize keymaps:**
-
-```lua
-keymaps = {
-  enabled = true,
-  notes = {
-    list = "<leader>nl",
-    open = "<leader>no",
-    new = "<leader>nn",
-    new_with_title = "<leader>nN",
-    title = "<leader>nt",
-    delete = "<leader>nd",
-  },
-}
-```
-
 ### quicknotes
 
 - **Type:** table
@@ -213,26 +182,13 @@ require('neoweaver').setup({
     },
   },
   api = {
-    -- URLs where your MindWeaver server is running
     servers = {
       local = { url = "http://localhost:9421", default = true },
       cloud = { url = "https://mindweaver.example.com" },
     },
     debug_info = true,
   },
-  keymaps = {
-    enabled = true,
-    notes = {
-      list = "<leader>nl",
-      open = "<leader>no",
-      new = "<leader>nn",
-      new_with_title = "<leader>nN",
-      title = "<leader>nt",
-      delete = "<leader>nd",
-    },
-    quicknotes = {
-      new = "<leader>qn",
-    },
-  },
 })
 ```
+
+For keymaps configuration, see [Keymaps](keymaps.md).
