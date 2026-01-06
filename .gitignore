@@ -3,8 +3,8 @@
 /deps/
 /.task/
 
-# Generated documentation
-/doc/*.txt
+# Generated documentation (entire directory)
+/doc/
 
 # Plugin packaging artifacts
 dist/

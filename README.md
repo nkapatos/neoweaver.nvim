@@ -4,7 +4,7 @@
 
 # Neoweaver
 
-### Neovim client for [MindWeaver](../1.server/)
+### Neovim client for [MindWeaver](https://github.com/nkapatos/mindweaver)
 
 ---
 
@@ -67,15 +67,15 @@ See [docs/installation.md](docs/installation.md) for additional configuration op
 
 ## Quick Start
 
-Default keymaps (with `<leader>` prefix):
+Suggested keymaps (not set by default):
 
 | Keymap | Action |
 |--------|--------|
 | `<leader>nl` | List notes |
 | `<leader>nn` | New note |
-| `<leader>no` | Open note |
 | `<leader>nt` | Edit note title |
-| `<leader>qn` | Quick capture |
+| `<leader>nq` | Quick capture |
+| `<leader>ne` | Toggle explorer |
 
 Key commands:
 
@@ -100,6 +100,6 @@ Or use `:help neoweaver` inside Neovim.
 ## Requirements
 
 - **Neovim 0.11+**
-- **MindWeaver server** — see [server README](../1.server/) to get started
+- **MindWeaver server** — see [MindWeaver](https://github.com/nkapatos/mindweaver) to get started
 - [plenary.nvim](https://github.com/nvim-lua/plenary.nvim)
 - [nui.nvim](https://github.com/MunifTanjim/nui.nvim)

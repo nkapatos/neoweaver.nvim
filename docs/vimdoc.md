@@ -24,15 +24,12 @@ docs/keymaps.md
 
 # API Reference
 
-For detailed API documentation including function signatures, parameters, and types, see:
+For detailed API documentation including function signatures, parameters, and types, see the `neoweaver_api.txt` help file:
 
-`:help neoweaver-api`
-
-The API reference is auto-generated from source code annotations and includes documentation for:
-
-- `require('neoweaver').setup()` - Plugin configuration
-- Internal modules and functions
-- Type definitions
+- `:help M.setup()` - Plugin configuration
+- `:help M.ensure_ready()` - Initialization entry point
+- `:help M.get_config()` - Get current configuration
+- `:help M.get_explorer()` - Get explorer instance
 
 # See Also
 
