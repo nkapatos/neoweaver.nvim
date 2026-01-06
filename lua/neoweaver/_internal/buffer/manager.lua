@@ -86,7 +86,7 @@ local function find_target_window()
     if buftype == "nofile" or filetype == "neoweaver_picker" then
       vim.api.nvim_set_current_win(win)
       local explorer = require("neoweaver._internal.explorer")
-      local split_cmd = explorer.get_position() == "right" and "leftabove vsplit" or "vsplit"
+      local split_cmd = explorer.get_position() == "left" and "rightbelow vsplit" or "leftabove vsplit"
       vim.cmd(split_cmd)
       local new_win = vim.api.nvim_get_current_win()
       return new_win
