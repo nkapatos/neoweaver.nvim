@@ -7,8 +7,11 @@ local Input = require("nui.input")
 local manager = require("neoweaver._internal.picker.manager")
 local collections = require("neoweaver._internal.collections")
 local api = require("neoweaver._internal.api")
+local events = require("neoweaver._internal.events")
 
 local M = {}
+
+local ORIGIN = "collections"
 
 local function empty_stats()
   return { items = { { label = "Collections", count = 0 }, { label = "Notes", count = 0 } } }
@@ -256,6 +259,12 @@ M.source = {
                 return
               end
               vim.notify("Created collection: " .. collection.displayName, vim.log.levels.INFO)
+
+              events.emit(events.types.COLLECTION, {
+                action = "created",
+                collection = { id = collection.id, displayName = collection.displayName, parentId = parent_id },
+              }, { origin = ORIGIN })
+
               if refresh_cb then
                 refresh_cb()
               end
@@ -301,6 +310,12 @@ M.source = {
                 return
               end
               vim.notify("Renamed collection to: " .. collection.displayName, vim.log.levels.INFO)
+
+              events.emit(events.types.COLLECTION, {
+                action = "updated",
+                collection = { id = collection.id, displayName = collection.displayName },
+              }, { origin = ORIGIN })
+
               if refresh_cb then
                 refresh_cb()
               end
@@ -321,6 +336,12 @@ M.source = {
                   return
                 end
                 vim.notify("Renamed note to: " .. patch_res.data.title, vim.log.levels.INFO)
+
+                events.emit(events.types.NOTE, {
+                  action = "updated",
+                  note = { id = node.note_id, title = patch_res.data.title },
+                }, { origin = ORIGIN })
+
                 if refresh_cb then
                   refresh_cb()
                 end
@@ -357,6 +378,12 @@ M.source = {
                 return
               end
               vim.notify("Deleted collection: " .. node.name, vim.log.levels.INFO)
+
+              events.emit(events.types.COLLECTION, {
+                action = "deleted",
+                collection = { id = node.collection_id },
+              }, { origin = ORIGIN })
+
               if refresh_cb then
                 refresh_cb()
               end
@@ -369,6 +396,12 @@ M.source = {
                 return
               end
               vim.notify("Deleted note: " .. node.name, vim.log.levels.INFO)
+
+              events.emit(events.types.NOTE, {
+                action = "deleted",
+                note = { id = node.note_id },
+              }, { origin = ORIGIN })
+
               if refresh_cb then
                 refresh_cb()
               end

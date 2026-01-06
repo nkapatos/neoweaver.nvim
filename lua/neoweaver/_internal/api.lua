@@ -1,5 +1,6 @@
 local M = {}
 local curl = require("plenary.curl")
+local events = require("neoweaver._internal.events")
 
 local sse_state = {
   job = nil,
@@ -121,10 +122,10 @@ end
 
 --- Parse SSE events from buffered data
 ---@param buffer string
----@return table[] events
+---@return table[] parsed_events
 ---@return string remaining
 local function parse_sse_events(buffer)
-  local events = {}
+  local parsed_events = {}
   local remaining = buffer
 
   -- SSE events are separated by double newlines
@@ -154,11 +155,11 @@ local function parse_sse_events(buffer)
     end
 
     if event.event or event.data then
-      table.insert(events, event)
+      table.insert(parsed_events, event)
     end
   end
 
-  return events, remaining
+  return parsed_events, remaining
 end
 
 local function request(method, endpoint, opts, cb)
@@ -382,76 +383,8 @@ function M.toggle_debug()
   vim.notify("Debug logging: " .. (M.config.debug_info and "ON" or "OFF"), vim.log.levels.INFO)
 end
 
--- SSE Events
-M.events = {}
-
-M.events.types = {
-  NOTE = "note",
-  COLLECTION = "collection",
-  TAG = "tag",
-  SYSTEM = "system",
-}
-
-local event_subscribers = {} -- { [domain]: { callback, ... } }
-
---- Subscribe to domain events. Returns unsubscribe function (call on cleanup).
----@param domains string|string[]
----@param callback fun(event: table)
----@return fun() unsubscribe
-function M.events.on(domains, callback)
-  if type(domains) == "string" then
-    domains = { domains }
-  end
-
-  for _, domain in ipairs(domains) do
-    if not event_subscribers[domain] then
-      event_subscribers[domain] = {}
-    end
-    table.insert(event_subscribers[domain], callback)
-  end
-
-  return function()
-    for _, domain in ipairs(domains) do
-      local subs = event_subscribers[domain]
-      if subs then
-        for i, cb in ipairs(subs) do
-          if cb == callback then
-            table.remove(subs, i)
-            break
-          end
-        end
-      end
-    end
-  end
-end
-
---- Dispatch event to subscribers, skipping self-originated events
----@param event table
-local function dispatch_event(event)
-  local domain = event.event
-  if not domain then
-    return
-  end
-
-  if event.data and event.data.origin_session_id and event.data.origin_session_id == sse_state.session_id then
-    if M.config.debug_info then
-      vim.notify("SSE: Skipping self-originated event: " .. domain, vim.log.levels.DEBUG)
-    end
-    return
-  end
-
-  local subs = event_subscribers[domain]
-  if not subs then
-    return
-  end
-
-  for _, callback in ipairs(subs) do
-    local ok, err = pcall(callback, event)
-    if not ok then
-      vim.notify("SSE subscriber error: " .. tostring(err), vim.log.levels.ERROR)
-    end
-  end
-end
+-- SSE Events - merge events module with SSE-specific methods
+M.events = setmetatable({}, { __index = events })
 
 --- Connect to the SSE event stream
 function M.events.connect()
@@ -492,10 +425,10 @@ function M.events.connect()
           end
 
           sse_state.buffer = sse_state.buffer .. line .. "\n"
-          local events, remaining = parse_sse_events(sse_state.buffer)
+          local parsed_events, remaining = parse_sse_events(sse_state.buffer)
           sse_state.buffer = remaining
 
-          for _, event in ipairs(events) do
+          for _, event in ipairs(parsed_events) do
             if event.id then
               sse_state.last_event_id = event.id
             end
@@ -511,14 +444,21 @@ function M.events.connect()
               end
             end
 
-            if M.config.debug_info then
-              vim.notify(
-                string.format("SSE Event: %s - %s", event.event or "unknown", vim.inspect(event.data)),
-                vim.log.levels.DEBUG
-              )
-            end
+            -- Skip self-originated events (session_id filtering)
+            if event.data and event.data.origin_session_id and event.data.origin_session_id == sse_state.session_id then
+              if M.config.debug_info then
+                vim.notify("SSE: Skipping self-originated event: " .. (event.event or "unknown"), vim.log.levels.DEBUG)
+              end
+            else
+              if M.config.debug_info then
+                vim.notify(
+                  string.format("SSE Event: %s - %s", event.event or "unknown", vim.inspect(event.data)),
+                  vim.log.levels.DEBUG
+                )
+              end
 
-            dispatch_event(event)
+              events.dispatch_sse(event)
+            end
           end
         end)
 
