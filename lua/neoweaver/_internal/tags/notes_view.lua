@@ -12,7 +12,10 @@ local function load_data(tag_id, callback)
   -- we have to accept the full payload until field masking is implemented.
   api.tags.list_notes_for_tag({ tagId = tag_id, pageSize = 100 }, function(res)
     if res.error then
-      vim.notify("Failed to load notes for tag: " .. (res.error.message or vim.inspect(res.error)), vim.log.levels.ERROR)
+      vim.notify(
+        "Failed to load notes for tag: " .. (res.error.message or vim.inspect(res.error)),
+        vim.log.levels.ERROR
+      )
       callback({}, { items = {} })
       return
     end
