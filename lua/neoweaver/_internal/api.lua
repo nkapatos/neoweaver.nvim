@@ -340,12 +340,20 @@ M.collections = {
 
 ---@class TagsMethods Tags service methods
 ---@field list fun(req: mind.v3.ListTagsRequest, cb: fun(res: ApiResponse)) List tags
+---@field list_notes_for_tag fun(req: mind.v3.ListNotesForTagRequest, cb: fun(res: ApiResponse)) List notes for a tag
 
 ---@type TagsMethods
 M.tags = {
   list = function(req, cb)
     request("GET", "/mind.v3.TagsService/ListTags", {
       body = vim.json.encode(req or {}),
+      headers = { ["Content-Type"] = "application/json" },
+    }, cb)
+  end,
+
+  list_notes_for_tag = function(req, cb)
+    request("POST", "/mind.v3.TagsService/ListNotesForTag", {
+      body = vim.json.encode(req),
       headers = { ["Content-Type"] = "application/json" },
     }, cb)
   end,

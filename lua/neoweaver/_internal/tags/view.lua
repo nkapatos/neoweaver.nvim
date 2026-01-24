@@ -6,6 +6,10 @@ local manager = require("neoweaver._internal.picker.manager")
 local tags = require("neoweaver._internal.tags")
 local api = require("neoweaver._internal.api")
 
+local FloatingPicker = require("neoweaver._internal.ui.floating_picker")
+local notes_view = require("neoweaver._internal.tags.notes_view")
+local picker_configs = require("neoweaver._internal.picker.configs")
+
 local M = {}
 
 local cached_stats = { items = { { label = "Tags", count = 0 } } }
@@ -71,8 +75,14 @@ M.source = {
   get_stats = get_stats,
   actions = {
     select = function(node)
-      local msg = ("Selected tag: %s (id: %s)"):format(node.name or "???", node.tag_id or "?")
-      vim.notify(msg, vim.log.levels.INFO)
+      if not node.tag_id then
+        vim.notify("Not a valid tag node", vim.log.levels.WARN)
+        return
+      end
+
+      local source = notes_view.create_source(node.tag_id, node.name)
+      local fp = FloatingPicker.new(source, picker_configs.floating)
+      fp:show()
     end,
   },
 }
