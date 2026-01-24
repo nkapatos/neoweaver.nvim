@@ -38,7 +38,7 @@ function M.check()
   end
 
   -- Check if plugin is configured
-  local config_ok, config = pcall(require, "neoweaver._internal.config")
+  local config_ok, _config = pcall(require, "neoweaver._internal.config")
   if not config_ok then
     vim.health.warn("Plugin not loaded yet (call setup() first)")
     return
