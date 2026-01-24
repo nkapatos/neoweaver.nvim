@@ -73,12 +73,16 @@ tasks:
     dir: deps
     cmds:
       - git clone --filter=blob:none --depth=1 https://github.com/MunifTanjim/nui.nvim.git
+    status:
+      - test -d nui.nvim/.git
 
   deps:plenary:
     desc: Download plenary.nvim dependency in the deps directory
     dir: deps
     cmds:
       - git clone --filter=blob:none --depth=1 https://github.com/nvim-lua/plenary.nvim.git
+    status:
+      - test -d plenary.nvim/.git
 
   deps:mini:
     desc: Download mini.test and mini.doc dependencies in the deps directory
@@ -157,4 +161,34 @@ tasks:
       - doc/*.txt
     generates:
       - doc/tags
+
+  lint:
+    desc: Lint Lua files with luacheck
+    preconditions:
+      - sh: command -v luacheck
+        msg: "luacheck is not installed. Install with: luarocks install luacheck"
+    cmds:
+      - luacheck lua/
+
+  format:
+    desc: Format Lua files with stylua
+    preconditions:
+      - sh: command -v stylua
+        msg: "stylua is not installed. Install from: https://github.com/JohnnyMorganz/StyLua"
+    cmds:
+      - stylua lua/
+
+  format:check:
+    desc: Check Lua file formatting without modifying
+    preconditions:
+      - sh: command -v stylua
+        msg: "stylua is not installed. Install from: https://github.com/JohnnyMorganz/StyLua"
+    cmds:
+      - stylua --check lua/
+
+  test:
+    desc: Run the plenary test suite
+    deps: ['deps:plenary', 'deps:nui']
+    cmds:
+      - nvim --headless --noplugin -u scripts/minimal_init.lua -c "PlenaryBustedDirectory tests/plenary/ { minimal_init = 'scripts/minimal_init.lua' }"
 
