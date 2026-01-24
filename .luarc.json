@@ -11,9 +11,9 @@
   "workspace.library": [
     "$VIMRUNTIME/lua",
     "${3rd}/luv/library",
-    "${3rd}/busted/library",
-    "${3rd}/luassert/library",
+    "./deps/mini.nvim/lua",
     "./deps/nui.nvim/lua",
+    "./deps/plenary.nvim/lua"
   ],
   "workspace.checkThirdParty": false,
   "completion.callSnippet": "Replace",
