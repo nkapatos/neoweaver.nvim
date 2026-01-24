@@ -6,8 +6,10 @@ std = "luajit"
 codes = true
 
 -- Allow vim.wo.spell = true style assignments
+-- Ignore unused variables starting with _ (common Lua convention)
 ignore = {
   "122", -- Setting read-only field of global
+  "21./_.*", -- Unused variable/argument starting with _
 }
 
 -- Neovim global
@@ -22,6 +24,7 @@ exclude_files = {
 }
 
 -- Allow longer lines (matching stylua config)
+-- Type annotations can be long, so we're lenient on comments
 max_line_length = 120
 max_code_line_length = 120
-max_comment_line_length = 120
+max_comment_line_length = false

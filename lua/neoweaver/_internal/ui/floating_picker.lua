@@ -1,6 +1,5 @@
 --- Floating picker window host
 local Popup = require("nui.popup")
-local Picker = require("neoweaver._internal.picker")
 local picker_manager = require("neoweaver._internal.picker.manager")
 
 local M = {}

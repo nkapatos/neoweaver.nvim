@@ -1,7 +1,6 @@
 --- ViewSource for displaying notes associated with a tag
 local NuiTree = require("nui.tree")
 local NuiLine = require("nui.line")
-local manager = require("neoweaver._internal.picker.manager")
 local api = require("neoweaver._internal.api")
 
 local M = {}
