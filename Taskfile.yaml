@@ -187,8 +187,8 @@ tasks:
       - stylua --check lua/
 
   test:
-    desc: Run the plenary test suite
-    deps: ['deps:plenary', 'deps:nui']
+    desc: Run the mini.test test suite
+    deps: ['deps:mini', 'deps:nui', 'deps:plenary']
     cmds:
-      - nvim --headless --noplugin -u scripts/minimal_init.lua -c "PlenaryBustedDirectory tests/plenary/ { minimal_init = 'scripts/minimal_init.lua' }"
+      - nvim --headless --noplugin -u ./scripts/minimal_init.lua -c "lua MiniTest.run()"
 
