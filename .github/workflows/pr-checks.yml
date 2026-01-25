@@ -147,19 +147,16 @@ jobs:
         id: cache-deps
         with:
           path: deps/
-          key: neoweaver-deps-${{ runner.os }}-${{ hashFiles('.github/workflows/pr-checks.yml') }}
+          key: neoweaver-deps-${{ runner.os }}-${{ hashFiles('Taskfile.yaml') }}
           restore-keys: |
             neoweaver-deps-${{ runner.os }}-
 
-      - name: Setup dependencies
-        if: steps.cache-deps.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p deps
-          git clone --filter=blob:none --depth=1 https://github.com/echasnovski/mini.nvim deps/mini.nvim
-          git clone --filter=blob:none --depth=1 https://github.com/kdheepak/panvimdoc deps/panvimdoc
-
       - name: Setup Task
         uses: go-task/setup-task@v1
+
+      - name: Install dependencies
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: task deps
 
       - name: Generate documentation
         run: |
