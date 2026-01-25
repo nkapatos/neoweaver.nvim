@@ -4,7 +4,7 @@ local api = require("neoweaver._internal.api")
 local M = {}
 
 ---@param opts? { pageSize?: number, pageToken?: string }
----@param cb fun(collections: table[]|nil, error: table|nil)
+---@param cb fun(collections: mind.v3.Collection[]|nil, error: table|nil)
 function M.list_collections(opts, cb)
   opts = opts or {}
 
@@ -30,7 +30,7 @@ end
 
 --- List collections with note titles (two API calls: collections + notes)
 ---@param opts? { pageSize?: number }
----@param cb fun(data: { collections: table[], notes_by_collection: table }|nil, error: table|nil)
+---@param cb fun(data: { collections: mind.v3.Collection[], notes_by_collection: table<number, mind.v3.Note[]> }|nil, error: table|nil)
 function M.list_collections_with_notes(opts, cb)
   opts = opts or {}
 
@@ -95,7 +95,7 @@ end
 --- Create a new collection
 ---@param name string
 ---@param parent_id? number
----@param cb fun(collection: table|nil, error: table|nil)
+---@param cb fun(collection: mind.v3.Collection|nil, error: table|nil)
 function M.create_collection(name, parent_id, cb)
   ---@type mind.v3.CreateCollectionRequest
   local req = {
@@ -140,7 +140,7 @@ end
 --- Update a collection (rename/move)
 ---@param collection_id number
 ---@param opts { displayName?: string, parentId?: number, description?: string, position?: number }
----@param cb fun(collection: table|nil, error: table|nil)
+---@param cb fun(collection: mind.v3.Collection|nil, error: table|nil)
 function M.update_collection(collection_id, opts, cb)
   api.collections.get({ id = collection_id }, function(get_res)
     if get_res.error then
@@ -191,7 +191,7 @@ end
 --- Rename a collection (convenience wrapper around update_collection)
 ---@param collection_id number
 ---@param new_name string
----@param cb fun(collection: table|nil, error: table|nil)
+---@param cb fun(collection: mind.v3.Collection|nil, error: table|nil)
 function M.rename_collection(collection_id, new_name, cb)
   M.update_collection(collection_id, { displayName = new_name }, cb)
 end

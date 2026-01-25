@@ -175,7 +175,7 @@ end
 --- Create a note with client-provided title (CreateNote endpoint)
 ---@param title string
 ---@param collection_id number
----@param callback? fun(note: table)
+---@param callback? fun(note: mind.v3.Note)
 function M.create_note(title, collection_id, callback)
   local extracted_meta = meta.load_metadata()
 

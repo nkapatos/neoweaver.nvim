@@ -5,7 +5,7 @@ local M = {}
 
 --- List all tags
 ---@param opts? { pageSize?: number, pageToken?: string }
----@param cb fun(tags: table[]|nil, error: table|nil)
+---@param cb fun(tags: mind.v3.Tag[]|nil, error: table|nil)
 function M.list_tags(opts, cb)
   opts = opts or {}
 
