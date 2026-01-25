@@ -25,8 +25,6 @@ tasks:
   types:ts-to-lua:
     desc: Convert TypeScript types to Lua annotations
     internal: true
-    deps:
-      - types:proto
     preconditions:
       - sh: command -v bun
         msg: "bun is not installed. Install from: https://bun.sh"
@@ -37,21 +35,18 @@ tasks:
     generates:
       - '{{.TYPES_OUTPUT}}'
 
-  types:cleanup:
-    desc: Remove temporary TypeScript files
-    internal: true
-    deps:
-      - types:ts-to-lua
+  types:clean:
+    desc: Remove all generated files (Lua types and TypeScript)
     cmds:
+      - rm -f {{.TYPES_OUTPUT}}
       - rm -rf {{.TS_GEN_DIR}}
 
   types:
     desc: Generate Lua type annotations from protobuf definitions
     aliases: [types:gen, types:generate]
-    deps:
-      - types:proto
-      - types:ts-to-lua
-      - types:cleanup
+    cmds:
+      - task: types:proto
+      - task: types:ts-to-lua
 
   types:clean:
     desc: Remove all generated files (Lua types and TypeScript)
