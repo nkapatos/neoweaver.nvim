@@ -1,26 +1,30 @@
 version: '3'
 
 vars:
-  # todo: update it to point to the remote dir if you plan to keep the proto to lua types gen.
-  # PROTO_DIR: ./proto
   TS_GEN_DIR: gen/ts
   TYPES_OUTPUT: lua/neoweaver/types.lua
   SCRIPTS_DIR: scripts
+  SERVER_PROTO_DIR: ../server/proto/mind
 
 tasks:
   types:proto:
     desc: Generate TypeScript types from mindweaver server protos
-    dir: '{{.PROTO_DIR}}'
+    internal: true
     preconditions:
       - sh: command -v buf
         msg: "buf is not installed. Install with: go install github.com/bufbuild/buf/cmd/buf@latest"
+      - sh: test -d {{.SERVER_PROTO_DIR}}
+        msg: "Server proto directory not found at {{.SERVER_PROTO_DIR}}. Clone the server repo as a sibling."
     cmds:
       - buf generate
+    sources:
+      - '{{.SERVER_PROTO_DIR}}/**/*.proto'
     generates:
-      - ../{{.TS_GEN_DIR}}/v3/*_pb.ts
+      - '{{.TS_GEN_DIR}}/v3/*_pb.ts'
 
   types:ts-to-lua:
     desc: Convert TypeScript types to Lua annotations
+    internal: true
     deps:
       - types:proto
     preconditions:
@@ -35,14 +39,15 @@ tasks:
 
   types:cleanup:
     desc: Remove temporary TypeScript files
+    internal: true
     deps:
       - types:ts-to-lua
     cmds:
       - rm -rf {{.TS_GEN_DIR}}
 
-  types:generate:
-    desc: Generate Lua type annotations from protobuf definitions (full pipeline)
-    aliases: [types:gen]
+  types:
+    desc: Generate Lua type annotations from protobuf definitions
+    aliases: [types:gen, types:generate]
     deps:
       - types:proto
       - types:ts-to-lua

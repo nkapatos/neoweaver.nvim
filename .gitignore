@@ -2,6 +2,7 @@
 /tmp/
 /deps/
 /.task/
+/node_modules/
 
 # Plugin packaging artifacts
 dist/

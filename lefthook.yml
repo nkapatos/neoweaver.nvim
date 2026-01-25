@@ -1,0 +1,14 @@
+# lefthook.yml - Git hooks configuration
+# https://github.com/evilmartians/lefthook
+#
+# Install hooks: lefthook install
+# Run manually:  lefthook run pre-push
+
+pre-push:
+  parallel: true
+  jobs:
+    - name: format check
+      run: task format:check
+
+    - name: lint
+      run: task lint

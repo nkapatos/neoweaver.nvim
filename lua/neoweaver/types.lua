@@ -1,5 +1,14 @@
---- AUTO-GENERATED from Protocol Buffer definitions. Do not edit.
---- Regenerate with: task types:generate
+--- Type definitions for MindWeaver API
+---
+--- AUTO-GENERATED from Protocol Buffer definitions (proto/mind/v3/*.proto).
+--- Do not edit manually.
+---
+--- To regenerate these types:
+---   task neoweaver:types:generate
+---
+--- This file provides LuaLS type annotations for the MindWeaver v3 API,
+--- enabling autocomplete and type checking in Neovim plugin development.
+---
 ---@module neoweaver.types
 local M = {}
 
@@ -58,6 +67,24 @@ local M = {}
 ---@class mind.v3.GetCollectionTreeResponse
 ---@field root? Collection
 ---@field descendants Collection[]
+
+-- From events.proto
+
+---@class mind.v3.Event
+---@field id integer
+---@field domain EventDomain
+---@field type EventType
+---@field entityId integer
+---@field timestamp? string
+---@field originSessionId string
+---@field sessionId string
+---@field relocated? RelocatedPayload
+
+---@class mind.v3.RelocatedPayload
+---@field oldTitle? string
+---@field newTitle? string
+---@field oldCollectionId? integer
+---@field newCollectionId? integer
 
 -- From links.proto
 
@@ -158,6 +185,7 @@ local M = {}
 ---@field createTime? string
 ---@field updateTime? string
 ---@field metadata table<string, string>
+---@field collectionPath? string
 
 ---@class mind.v3.CreateNoteRequest
 ---@field title string
@@ -181,8 +209,21 @@ local M = {}
 ---@field isTemplate? boolean
 ---@field metadata table<string, string>
 
+---@class mind.v3.UpdateNoteRequest
+---@field id integer
+---@field title? string
+---@field body? string
+---@field description? string
+---@field noteTypeId? integer
+---@field collectionId? integer
+---@field isTemplate? boolean
+
 ---@class mind.v3.DeleteNoteRequest
 ---@field id integer
+
+---@class mind.v3.NewNoteRequest
+---@field collectionId? integer
+---@field templateId? integer
 
 ---@class mind.v3.ListNotesRequest
 ---@field pageSize number
@@ -190,8 +231,23 @@ local M = {}
 ---@field collectionId? integer
 ---@field noteTypeId? integer
 ---@field isTemplate? boolean
+---@field fieldMask? string
 
 ---@class mind.v3.ListNotesResponse
+---@field notes Note[]
+---@field nextPageToken string
+---@field totalSize? number
+
+---@class mind.v3.FindNotesRequest
+---@field title? string
+---@field collectionId? integer
+---@field noteTypeId? integer
+---@field isTemplate? boolean
+---@field pageSize? number
+---@field pageToken? string
+---@field fieldMask? string
+
+---@class mind.v3.FindNotesResponse
 ---@field notes Note[]
 ---@field nextPageToken string
 ---@field totalSize? number
@@ -249,6 +305,26 @@ local M = {}
 ---@field noteId? integer
 
 ---@class mind.v3.ListTagsResponse
+---@field tags Tag[]
+---@field nextPageToken string
+---@field totalSize? number
+
+---@class mind.v3.ListNotesForTagRequest
+---@field tagId integer
+---@field pageSize number
+---@field pageToken string
+
+---@class mind.v3.ListNotesForTagResponse
+---@field notes Note[]
+---@field nextPageToken string
+---@field totalSize? number
+
+---@class mind.v3.FindTagsRequest
+---@field name string
+---@field pageSize number
+---@field pageToken string
+
+---@class mind.v3.FindTagsResponse
 ---@field tags Tag[]
 ---@field nextPageToken string
 ---@field totalSize? number
