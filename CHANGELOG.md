@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.1.12](https://github.com/nkapatos/neoweaver.nvim/compare/v0.1.11...v0.1.12) (2026-01-25)
+
+
+### Features
+
+* **ci:** enable luacheck linting in CI pipeline ([564fb92](https://github.com/nkapatos/neoweaver.nvim/commit/564fb92f7589ef11873c74c77a8b9709ee72fc3b)), closes [#19](https://github.com/nkapatos/neoweaver.nvim/issues/19)
+* **dev:** add lint and format tasks to Taskfile ([966c0a9](https://github.com/nkapatos/neoweaver.nvim/commit/966c0a93cafddea9b5cfe546176993801ee3f839))
+* **dev:** add mini.test testing infrastructure ([e46e11b](https://github.com/nkapatos/neoweaver.nvim/commit/e46e11b23b1c4e01f369ca1c08051eabd1641e26))
+* **dev:** proto management with local generation and pre-push hooks ([4ab5e27](https://github.com/nkapatos/neoweaver.nvim/commit/4ab5e27e0f1e5bd6b809b051665acece69f25121))
+* **explorer:** show floating picker on tag selection ([d8c5178](https://github.com/nkapatos/neoweaver.nvim/commit/d8c51784c4ea6475523e881756347f24ceb187fc))
+
+
+### Bug Fixes
+
+* **ci:** unify cache keys and use task for docs deps ([6ac26c7](https://github.com/nkapatos/neoweaver.nvim/commit/6ac26c77fc01c377634414da3cd6e81a6d4111ac))
+* **dev:** remove types cleanup step to enable full caching ([5af518f](https://github.com/nkapatos/neoweaver.nvim/commit/5af518f54546e2b86ac4348b3777abd66f9360c9))
+
+
+### Documentation
+
+* generate help files and tags ([9232a74](https://github.com/nkapatos/neoweaver.nvim/commit/9232a74455d1f43f7739eee7e4cee6bd859fcfc3))
+* generate help files and tags ([bb2940f](https://github.com/nkapatos/neoweaver.nvim/commit/bb2940f867644c1f1e35bcb59142b3beea892785))
+
+
+### Maintenance
+
+* **dev:** housekeeping - update LSP config, CI workflow, and deps ([1bf8d70](https://github.com/nkapatos/neoweaver.nvim/commit/1bf8d70268607f3f04755e77d610980bd3b875d6))
+
+
+### Refactoring
+
+* **api:** break down api.lua into smaller modules ([3a20261](https://github.com/nkapatos/neoweaver.nvim/commit/3a20261014cd48363edb4eab4b78910c9fa53e97))
+* **types:** use generated mind.v3 types in function signatures ([fc0656d](https://github.com/nkapatos/neoweaver.nvim/commit/fc0656dcf5e28c94c70fd113c5201c866b7c74f0))
+
 ## [0.1.11](https://github.com/nkapatos/neoweaver.nvim/compare/v0.1.10...v0.1.11) (2026-01-06)
 
 
